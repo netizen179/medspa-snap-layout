@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+
+  /* Global palette — Page 1 variables, inherited by all layers */
+  --color-champagne: #d4af37;
+  --color-ivory: #f5f5f2;
+  --color-charcoal: #1a1a1a;
+}
+
+/* ==========================================================================
+   VERTICAL VIEWPORT SNAPPING MECHANICS
+   Connected to the Webflow template in webflow_scroll_snap.webflow.io/
+   (its `.fullpage-wrapper` / `.section` class system and hidden-scrollbar
+   treatment). Native CSS scroll-snap is used instead of the template's
+   fullPage.js library so transitions remain smooth and momentum-preserving
+   — no abrupt or forced scroll-jacking.
+   ========================================================================== */
+html {
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #000;
+}
+
+/* Each 100vh layer is a snap point, mirroring the template's `.section` */
+.section {
+  scroll-snap-align: start;
+}
+
+/* Hidden scrollbar — same treatment the template applies */
+::-webkit-scrollbar {
+  width: 0;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Fluid fade-on-scroll reveal for section content */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s ease,
+    transform 0.9s ease;
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Subtle premium load-in animation for the hero layer */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.anim-fade-up {
+  opacity: 0;
+  animation: fade-up 0.9s ease forwards;
+}
