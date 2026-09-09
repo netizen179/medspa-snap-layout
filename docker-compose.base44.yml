@@ -1,0 +1,8 @@
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./webflow_scroll_snap.webflow.io:/usr/share/nginx/html:ro
+    restart: unless-stopped
