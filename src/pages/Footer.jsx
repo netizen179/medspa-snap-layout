@@ -14,7 +14,7 @@ export default function Footer() {
     >
       {/* ---- Central brand identity anchor ---- */}
       <Reveal className="flex flex-col items-center text-center">
-        <h2 className="font-serif text-4xl font-medium uppercase tracking-[0.25em] shift-contrast md:text-6xl">
+        <h2 className="font-serif text-2xl font-medium uppercase tracking-[0.25em] shift-contrast sm:text-4xl md:text-6xl">
           Bare Esthetics
         </h2>
         <p className="mt-4 text-xs uppercase tracking-[0.35em] text-zinc-500">
@@ -23,9 +23,9 @@ export default function Footer() {
       </Reveal>
 
       {/* ---- 3-column logistics matrix ---- */}
-      <div className="container mx-auto mt-auto w-full max-w-5xl px-6 pb-16 md:px-12">
+      <div className="container mx-auto mt-auto w-full max-w-5xl px-6 pb-16">
         <Reveal delay={150}>
-          <div className="grid grid-cols-1 gap-10 text-center text-xs uppercase tracking-wide text-[#808080] md:grid-cols-3 md:text-left">
+          <div className="grid grid-cols-1 gap-10 text-center text-xs uppercase tracking-wide text-[#808080] lg:grid-cols-3 lg:text-left">
             <div>
               <h3 className="mb-3 text-xs font-medium text-zinc-400">
                 Clinic Hours

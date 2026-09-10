@@ -204,12 +204,13 @@ export default function Hero() {
           </p>
 
           <h1
-            className="anim-fade-up mt-5 font-serif text-[clamp(46px,7.5vw,96px)] font-medium uppercase leading-[0.98] tracking-[0.01em] shift-contrast md:mt-6"
+            className="anim-fade-up mt-5 font-serif text-[clamp(46px,7.5vw,96px)] font-medium uppercase leading-[0.98] tracking-[0.01em] md:mt-6"
             style={{ animationDelay: '0.5s' }}
           >
-            Beyond
-            <br />
-            Surface
+            {/* Chop vertical split: off-white upper half fading into
+                muted dark grayscale on the lower half of each word */}
+            <span className="block text-gradient-fade">Beyond</span>
+            <span className="block text-gradient-fade">Surface</span>
           </h1>
 
           <p

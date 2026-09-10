@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Reveal from '../components/Reveal'
-import { CAL_COM_EVENT_URL } from '../config/links'
+import { CAL_BOOKING_PIPELINE } from '../config/booking'
 
 /* ==========================================================================
    PAGE 4 — THE INTERACTIVE BOOKING PORTAL LAYER
@@ -58,7 +58,7 @@ export default function Booking() {
 
             {/* Automated confirmation micro-notification */}
             <div
-              className={`absolute top-0 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-champagne/40 bg-black/90 px-5 py-2.5 text-[10px] uppercase tracking-[0.2em] text-ivory backdrop-blur transition-all duration-700 ${
+              className={`absolute top-0 left-1/2 z-10 w-[90%] max-w-md -translate-x-1/2 rounded-full border border-champagne/40 bg-black/90 px-4 py-2.5 text-center text-[10px] leading-relaxed tracking-[0.2em] text-ivory backdrop-blur transition-all duration-700 md:w-auto md:px-5 md:whitespace-nowrap ${
                 confirmed ? 'opacity-100' : 'pointer-events-none opacity-0'
               }`}
             >
@@ -71,7 +71,7 @@ export default function Booking() {
               internal height of the glass frame */}
           <iframe
             title="Bare Esthetics — online scheduling"
-            src={CAL_COM_EVENT_URL}
+            src={CAL_BOOKING_PIPELINE.iframeUrl}
             className="min-h-0 w-full flex-1 rounded-lg border border-zinc-800/60 bg-black"
           />
         </div>

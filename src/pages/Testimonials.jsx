@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Reveal from '../components/Reveal'
+import { TALLY_WEBHOOK_URL } from '../config/integrations'
 
 /* ==========================================================================
    PAGE 3 — THE SOCIAL PROOF & CLIENT INTAKE LAYER
@@ -52,9 +53,24 @@ export default function Testimonials() {
     return () => clearInterval(id)
   }, [])
 
-  const handleSubmit = (e) => {
+  /* Target data handler: routes the intake payload dynamically to
+     the Tally.so webhook layer (client-side, no backend required). */
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitted(true)
+    if (!TALLY_WEBHOOK_URL) return
+    try {
+      await fetch(TALLY_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          source: 'bare-esthetics-intake',
+        }),
+      })
+    } catch {
+      /* Webhook unreachable — the intake confirmation is already shown */
+    }
   }
 
   return (
@@ -66,7 +82,7 @@ export default function Testimonials() {
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
               Testimonials
             </p>
-            <h2 className="mt-4 mb-8 font-serif text-3xl font-medium shift-contrast">
+            <h2 className="mt-4 mb-8 font-serif text-2xl font-medium shift-contrast md:text-3xl lg:text-4xl">
               What Our Clients Say
             </h2>
 

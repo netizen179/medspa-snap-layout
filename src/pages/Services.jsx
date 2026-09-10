@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Reveal from '../components/Reveal'
 import { TREATMENTS } from '../config/links'
 
 /* ==========================================================================
    PAGE 2 — THE INTERACTIVE SERVICE HIGHLIGHTS LAYER
-   Strict 50/50 desktop split: philosophy LEFT, card deck RIGHT.
+   Desktop (lg+): strict 50/50 split — philosophy LEFT, card deck RIGHT.
+   Tablet/mobile: seamless single-column vertical stack.
    The 5 cascading cards rest as an angled, tilted tray (task-view
-   aesthetic) and explode into a spacious 3+2 grid on container hover.
+   aesthetic) and explode into a spacious 3+2 grid on container hover —
+   scaled per breakpoint (.deck-zone vars) and re-centered on the
+   viewport so the matrix always fits inside the screen boundaries.
    ========================================================================== */
 
 /* The deck shows 5 cards (3 top + 2 below in the exploded grid) */
@@ -22,13 +25,15 @@ const STACKED = [
   'z-[30] translate-y-[7px] rotate-[-5deg] scale-[0.80] opacity-60',
 ]
 
-/* Exploding grid slots: 3 cards across the top row, 2 centered below */
+/* Exploding grid slots: 3 cards across the top row, 2 centered below.
+   Offsets/scale come from the .deck-zone breakpoint variables so the
+   grid scales down and fits the viewport with no cut-off cards. */
 const EXPLODED = [
-  'z-10 -translate-x-[270px] -translate-y-[150px] rotate-0 scale-[0.6] opacity-100',
-  'z-10 -translate-y-[150px] rotate-0 scale-[0.6] opacity-100',
-  'z-10 translate-x-[270px] -translate-y-[150px] rotate-0 scale-[0.6] opacity-100',
-  'z-10 -translate-x-[135px] translate-y-[150px] rotate-0 scale-[0.6] opacity-100',
-  'z-10 translate-x-[135px] translate-y-[150px] rotate-0 scale-[0.6] opacity-100',
+  'z-10 -translate-x-[var(--deck-x)] -translate-y-[var(--deck-y)] rotate-0 scale-[var(--deck-s)] opacity-100',
+  'z-10 -translate-y-[var(--deck-y)] rotate-0 scale-[var(--deck-s)] opacity-100',
+  'z-10 translate-x-[var(--deck-x)] -translate-y-[var(--deck-y)] rotate-0 scale-[var(--deck-s)] opacity-100',
+  'z-10 -translate-x-[calc(var(--deck-x)/2)] translate-y-[var(--deck-y)] rotate-0 scale-[var(--deck-s)] opacity-100',
+  'z-10 translate-x-[calc(var(--deck-x)/2)] translate-y-[var(--deck-y)] rotate-0 scale-[var(--deck-s)] opacity-100',
 ]
 
 /* Front-card exit state: slides 150px right, shrinks, fades — then
@@ -46,6 +51,31 @@ export default function Services() {
   const [order, setOrder] = useState(CARDS.map((_, i) => i))
   const [leaving, setLeaving] = useState(null)
   const [exploded, setExploded] = useState(false)
+  const [zoneShift, setZoneShift] = useState(0)
+  const zoneRef = useRef(null)
+  const shiftRef = useRef(0)
+
+  /* Re-center the exploded matrix on the viewport so it always fits
+     inside the screen boundaries, regardless of the right-column
+     position. Measured against the un-shifted container position. */
+  useEffect(() => {
+    if (!exploded) {
+      shiftRef.current = 0
+      setZoneShift(0)
+      return
+    }
+    const recenter = () => {
+      const zone = zoneRef.current
+      if (!zone) return
+      const rect = zone.getBoundingClientRect()
+      const unshiftedCenter = rect.left + rect.width / 2 - shiftRef.current
+      shiftRef.current = Math.round(window.innerWidth / 2 - unshiftedCenter)
+      setZoneShift(shiftRef.current)
+    }
+    recenter()
+    window.addEventListener('resize', recenter)
+    return () => window.removeEventListener('resize', recenter)
+  }, [exploded])
 
   const shuffle = () => {
     if (leaving !== null || exploded) return
@@ -59,14 +89,14 @@ export default function Services() {
 
   return (
     <section id="page-2" className="section relative min-h-screen bg-black">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-6 py-24 md:grid-cols-2 md:gap-8 md:px-10 md:py-0 lg:min-h-screen">
-        {/* ---- LEFT half: identity & philosophy ---- */}
-        <Reveal className="snap-start md:[scroll-snap-align:none]" delay={100}>
-          <div className="mx-auto max-w-md md:pl-[2vw] md:pr-10">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-6 py-24 lg:min-h-screen lg:grid-cols-2 lg:gap-8 lg:px-10 lg:py-0">
+        {/* ---- LEFT half (lg+): identity & philosophy ---- */}
+        <Reveal className="snap-start lg:[scroll-snap-align:none]" delay={100}>
+          <div className="mx-auto max-w-md lg:pl-[2vw] lg:pr-10">
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
               The Clinic
             </p>
-            <h2 className="mt-4 mb-6 font-serif text-3xl font-medium shift-contrast md:text-4xl">
+            <h2 className="mt-4 mb-6 font-serif text-2xl font-medium shift-contrast md:text-3xl lg:text-4xl">
               Artistry Meets Innovation
             </h2>
             <p className="max-w-md text-sm leading-relaxed text-zinc-400">
@@ -89,13 +119,15 @@ export default function Services() {
           </div>
         </Reveal>
 
-        {/* ---- RIGHT half: the angled 5-card deck + exploding grid ---- */}
-        <Reveal className="snap-start md:[scroll-snap-align:none]" delay={250}>
+        {/* ---- RIGHT half (lg+): the angled 5-card deck + exploding grid ---- */}
+        <Reveal className="snap-start lg:[scroll-snap-align:none]" delay={250}>
           <div className="flex flex-col items-center">
             {/* Hover zone covers the full exploded matrix so cards
                 never leave the interactive area while expanded */}
             <div
-              className="relative h-[560px] w-[740px] max-w-full"
+              ref={zoneRef}
+              className={`deck-zone relative h-[560px] w-[740px] max-w-full transition-transform duration-700 ${EASE}`}
+              style={{ transform: `translateX(${zoneShift}px)` }}
               onMouseEnter={() => canHover() && setExploded(true)}
               onMouseLeave={() => setExploded(false)}
             >
@@ -109,10 +141,10 @@ export default function Services() {
                     ? LEAVING
                     : STACKED[pos]
                 return (
-                  <div
-                    key={t.id}
-                    className="absolute top-1/2 left-1/2"
-                  >
+                  /* Zero-size anchor point at the zone center: the card
+                     centers on it via translate, so the wrapper's layout
+                     box never overflows the section (mobile-safe). */
+                  <div key={t.id} className="absolute top-1/2 left-1/2 h-0 w-0">
                     <div className="-translate-x-1/2 -translate-y-1/2">
                       <article
                         onClick={

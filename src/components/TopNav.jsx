@@ -1,5 +1,3 @@
-import { useEffect, useRef } from 'react'
-
 const LINKS = [
   { label: 'HOME', href: '#page-1' },
   { label: 'ABOUT', href: '#page-2' },
@@ -7,65 +5,44 @@ const LINKS = [
   { label: 'CONTACT', href: '#page-3' },
 ]
 
+/*
+ * Global sticky header. On the Page 2 layer the navbar is removed
+ * entirely (faded out, non-interactive) so the exploding card grid
+ * owns the full plane without collision.
+ */
 export default function TopNav({ activeSection }) {
-  const headerRef = useRef(null)
-  const logoRef = useRef(null)
-  const linksRef = useRef(null)
-
-  useEffect(() => {
-    const positionLinks = () => {
-      const header = headerRef.current
-      const logo = logoRef.current
-      const links = linksRef.current
-      if (!header || !logo || !links) return
-
-      /* On the Page 2 layer the nav links slide to the left and rest
-         right beside the "Bare" logo, so the exploding card grid owns
-         the right half of the screen without collision. */
-      if (activeSection === 'page-2' && window.innerWidth >= 768) {
-        const headerRect = header.getBoundingClientRect()
-        const padRight = parseFloat(getComputedStyle(header).paddingRight)
-        const restLeft =
-          headerRect.right - padRight - links.getBoundingClientRect().width
-        const slide = logo.getBoundingClientRect().right + 28 - restLeft
-        links.style.transform = `translateX(${slide}px)`
-      } else {
-        links.style.transform = 'translateX(0)'
-      }
-    }
-
-    positionLinks()
-    window.addEventListener('resize', positionLinks)
-    return () => window.removeEventListener('resize', positionLinks)
-  }, [activeSection])
+  const hidden = activeSection === 'page-2'
 
   return (
     <header
-      ref={headerRef}
-      className="anim-fade-up fixed inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-5 md:px-10 md:py-6"
-      style={{ animationDelay: '0.15s' }}
+      className={`fixed inset-x-0 top-0 z-50 transition-opacity duration-700 ${
+        hidden ? 'pointer-events-none opacity-0' : 'opacity-100'
+      }`}
     >
-      <a
-        ref={logoRef}
-        href="#page-1"
-        className="font-serif text-xl font-light uppercase tracking-[0.2em] text-ivory"
+      {/* Inner wrapper carries the load-in animation so the hide/show
+          opacity toggle above is never overridden by keyframe fill. */}
+      <div
+        className="anim-fade-up flex items-center justify-between px-4 py-4 md:px-10 md:py-6"
+        style={{ animationDelay: '0.15s' }}
       >
-        Bare
-      </a>
-      <nav
-        ref={linksRef}
-        className="flex items-center gap-4 transition-transform duration-700 ease-[cubic-bezier(0.65,0,0.35,1)] md:gap-8"
-      >
-        {LINKS.map((link) => (
-          <a
-            key={link.label}
-            href={link.href}
-            className="text-[9px] uppercase tracking-[0.25em] text-zinc-300 transition-colors duration-500 hover:text-ivory md:text-xs"
-          >
-            {link.label}
-          </a>
-        ))}
-      </nav>
+        <a
+          href="#page-1"
+          className="font-serif text-lg font-light uppercase tracking-[0.2em] text-ivory md:text-xl"
+        >
+          Bare
+        </a>
+        <nav className="flex items-center gap-3 md:gap-8">
+          {LINKS.map((link) => (
+            <a
+              key={link.label}
+              href={link.href}
+              className="text-[8px] uppercase tracking-[0.2em] text-zinc-300 transition-colors duration-500 hover:text-ivory md:text-xs md:tracking-[0.25em]"
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
+      </div>
     </header>
   )
 }
