@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: #000000;
+    color: #F5F5F2;
+    font-family: 'Montserrat', sans-serif;
+    overflow-x: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 0px;
+  }
+}
+
+@layer components {
+  .snap-section {
+    height: 100vh;
+    width: 100vw;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nav-link {
+    @apply text-xs uppercase tracking-widest text-zinc-300 hover:text-white transition-colors duration-500;
+  }
+
+  .eyebrow {
+    @apply text-xs uppercase tracking-[0.3em] text-zinc-400 font-sans;
+  }
+
+  .cta-link {
+    @apply inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-ivory font-sans border-b border-white/20 pb-1 hover:border-gold transition-all duration-500;
+  }
+
+  .cta-link .arrow {
+    @apply transition-transform duration-500;
+  }
+
+  .cta-link:hover .arrow {
+    @apply translate-x-1;
+  }
+
+  .gold-link {
+    @apply inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-gold font-sans hover:text-[#E8C84A] transition-colors duration-500;
+  }
+
+  .gold-link .arrow {
+    @apply transition-transform duration-500;
+  }
+
+  .gold-link:hover .arrow {
+    @apply translate-x-1;
+  }
+
+  .form-input {
+    @apply w-full bg-transparent border border-zinc-700 rounded-lg px-4 py-3 text-sm text-zinc-200 font-sans placeholder-zinc-600 focus:outline-none transition-all duration-300;
+  }
+
+  .form-input:focus {
+    @apply border-gold;
+    box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.3);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.anim-fade-up {
+  animation: fadeInUp 1s ease-out forwards;
+}
+
+.anim-fade-in {
+  animation: fadeIn 1.5s ease-out forwards;
+}
+
+.anim-delay-1 { animation-delay: 0.2s; opacity: 0; }
+.anim-delay-2 { animation-delay: 0.5s; opacity: 0; }
+.anim-delay-3 { animation-delay: 0.8s; opacity: 0; }
+.anim-delay-4 { animation-delay: 1.1s; opacity: 0; }
+.anim-delay-5 { animation-delay: 1.4s; opacity: 0; }
