@@ -70,26 +70,68 @@ export default function Hero() {
   const [openSlice, setOpenSlice] = useState(-1) // mobile accordion
   const videoRefs = useRef([])
   const contentRef = useRef(null)
+  const sectionRef = useRef(null)
+  const hoveredRef = useRef(null)
 
-  /* AUDIO SYNC: the hovered track plays muted while its column expands;
-     the moment expansion completes, the sound fades in (transitionend).
-     The instant the mouse leaves or the column begins shrinking, audio
-     is killed (muted + paused) to prevent overlapping sound clashes. */
   useEffect(() => {
-    videoRefs.current.forEach((video, i) => {
-      if (!video) return
-      if (i === hovered) {
-        video.muted = true
-        video.play().catch(() => {})
-      } else {
-        video.muted = true
-        video.pause()
-      }
-    })
+    hoveredRef.current = hovered
   }, [hovered])
 
+  /* AUDIO SYNC — hard rule: only ONE sound can ever exist.
+     The hovered track plays muted while its column expands; the sound
+     fades in the exact moment expansion completes (transitionend).
+     Every hover change, mouse leave, or layer exit KILLS ALL audio
+     (mute + pause) first — only then does the hovered track restart,
+     muted — so overlapping sound clashes are impossible. */
+  const killAllAudio = () => {
+    videoRefs.current.forEach((video) => {
+      if (!video) return
+      video.muted = true
+      video.pause()
+    })
+  }
+
+  useEffect(() => {
+    killAllAudio()
+    if (hovered === null) return
+    const video = videoRefs.current[hovered]
+    if (video) video.play().catch(() => {})
+  }, [hovered])
+
+  /* The glide to another layer moves the hero out from under the
+     cursor without a mouseleave — kill audio the moment the layer
+     leaves the viewport. */
+  useEffect(() => {
+    const section = sectionRef.current
+    if (!section) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          setHovered(null)
+          killAllAudio()
+        }
+      },
+      { threshold: 0.3 }
+    )
+    observer.observe(section)
+    return () => observer.disconnect()
+  }, [])
+
+  /* Never leave a video element playing (unmuted or not) after the
+     component unmounts. */
+  useEffect(() => {
+    const refs = videoRefs.current
+    return () => {
+      refs.forEach((video) => {
+        if (!video) return
+        video.muted = true
+        video.pause()
+      })
+    }
+  }, [])
+
   const handleExpansionComplete = (i) => (e) => {
-    if (e.propertyName !== 'flex-grow' || hovered !== i) return
+    if (e.propertyName !== 'flex-grow' || hoveredRef.current !== i) return
     const video = videoRefs.current[i]
     if (!video) return
     video.muted = false
@@ -123,6 +165,7 @@ export default function Hero() {
   return (
     <section
       id="page-1"
+      ref={sectionRef}
       className="section relative h-screen min-h-[640px] overflow-hidden bg-black"
     >
       {/* ---- Portrait, aspect-locked (grid registration frame) ---- */}
