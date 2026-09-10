@@ -38,7 +38,7 @@ export default function App() {
 
   return (
     <div className="fullpage-wrapper min-h-screen bg-black font-sans text-zinc-100 antialiased">
-      <TopNav />
+      <TopNav activeSection={activeSection} />
       <main>
         <Hero />
         <Services />
