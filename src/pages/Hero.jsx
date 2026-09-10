@@ -71,7 +71,10 @@ export default function Hero() {
   const videoRefs = useRef([])
   const contentRef = useRef(null)
 
-  /* Loop the hovered track's video silently on absolute mute */
+  /* AUDIO SYNC: the hovered track plays muted while its column expands;
+     the moment expansion completes, the sound fades in (transitionend).
+     The instant the mouse leaves or the column begins shrinking, audio
+     is killed (muted + paused) to prevent overlapping sound clashes. */
   useEffect(() => {
     videoRefs.current.forEach((video, i) => {
       if (!video) return
@@ -79,10 +82,22 @@ export default function Hero() {
         video.muted = true
         video.play().catch(() => {})
       } else {
+        video.muted = true
         video.pause()
       }
     })
   }, [hovered])
+
+  const handleExpansionComplete = (i) => (e) => {
+    if (e.propertyName !== 'flex-grow' || hovered !== i) return
+    const video = videoRefs.current[i]
+    if (!video) return
+    video.muted = false
+    video.play().catch(() => {
+      /* Browsers may require prior user interaction for sound */
+      video.muted = true
+    })
+  }
 
   /* Scroll physics: hero typography fades 1 → 0 as the user scrolls
      toward Page 2 (progress-based, fully reversible). */
@@ -141,14 +156,17 @@ export default function Hero() {
               <div
                 key={i}
                 onMouseEnter={() => setHovered(i)}
+                onTransitionEnd={handleExpansionComplete(i)}
                 className="relative h-full cursor-pointer overflow-hidden"
                 style={{
+                  /* Hovered track expands fully (≈ full slice-zone width)
+                     to reveal the wide asset proportions; siblings compress */
                   flexGrow:
                     TRACK_WEIGHTS[i] *
                     10 *
-                    (hovered === i ? 3 : hovered !== null ? 0.75 : 1),
+                    (hovered === i ? 12 : hovered !== null ? 0.15 : 1),
                   flexBasis: 0,
-                  transition: 'flex-grow 0.7s ease-in-out',
+                  transition: 'flex-grow 0.9s ease-in-out',
                 }}
               >
                 <SliceMedia
@@ -186,7 +204,7 @@ export default function Hero() {
           </p>
 
           <h1
-            className="anim-fade-up mt-5 font-serif text-[clamp(46px,7.5vw,96px)] font-light uppercase leading-[0.98] tracking-[0.01em] text-ivory md:mt-6"
+            className="anim-fade-up mt-5 font-serif text-[clamp(46px,7.5vw,96px)] font-medium uppercase leading-[0.98] tracking-[0.01em] shift-contrast md:mt-6"
             style={{ animationDelay: '0.5s' }}
           >
             Beyond
@@ -218,7 +236,7 @@ export default function Hero() {
             </a>
             <a
               href="#page-4"
-              className="group inline-flex items-center gap-3 border border-champagne/40 px-5 py-2.5 text-[11px] uppercase tracking-[0.25em] text-champagne transition-all duration-500 hover:bg-champagne hover:text-black"
+              className="group inline-flex items-center gap-3 border border-champagne/40 px-5 py-2.5 text-[11px] uppercase tracking-[0.25em] text-ivory transition-all duration-500 hover:bg-champagne hover:text-black"
             >
               Book Appointment
               <span className="transition-transform duration-300 group-hover:translate-x-1">

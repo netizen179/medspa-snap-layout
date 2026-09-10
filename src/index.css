@@ -4,7 +4,8 @@
   --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", ui-serif, Georgia, serif;
 
-  /* Global palette — Page 1 variables, inherited by all layers */
+  /* Global palette — champagne is an accent for borders/backgrounds
+     only, never for text (text is grays + high-contrast whites). */
   --color-champagne: #d4af37;
   --color-ivory: #f5f5f2;
   --color-charcoal: #1a1a1a;
@@ -13,14 +14,19 @@
 /* ==========================================================================
    VERTICAL VIEWPORT SNAPPING MECHANICS
    Connected to the Webflow template in webflow_scroll_snap.webflow.io/
-   (its `.fullpage-wrapper` / `.section` class system and hidden-scrollbar
-   treatment). Native CSS scroll-snap is used instead of the template's
-   fullPage.js library so transitions remain smooth and momentum-preserving
-   — no abrupt or forced scroll-jacking.
+   (`.fullpage-wrapper` / `.section` class system, hidden scrollbar).
+   On fine-pointer devices the glide is JS-driven (useSmoothSnap) with
+   an extra-long buttery ease-in-out curve, so native snap is disabled
+   there; touch devices keep native momentum with a proximity fallback.
    ========================================================================== */
 html {
-  scroll-snap-type: y mandatory;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+  scroll-snap-type: y proximity;
+}
+@media (hover: hover) and (pointer: fine) {
+  html {
+    scroll-snap-type: none;
+  }
 }
 
 body {
@@ -38,6 +44,20 @@ body {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ==========================================================================
+   DYNAMIC GRAYSCALE → CONTRAST FADE
+   All headings and narrative copy rest in deep editorial gray and shift
+   smoothly to crisp off-white while their layer is active or hovered.
+   ========================================================================== */
+.shift-contrast {
+  color: #8f8f8f;
+  transition: color 1.2s ease;
+}
+.section:hover .shift-contrast,
+.section.is-active .shift-contrast {
+  color: #f5f5f2;
 }
 
 /* Fluid fade-on-scroll reveal for section content */

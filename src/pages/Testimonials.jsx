@@ -66,7 +66,7 @@ export default function Testimonials() {
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
               Testimonials
             </p>
-            <h2 className="mt-4 mb-8 font-serif text-3xl font-light text-ivory">
+            <h2 className="mt-4 mb-8 font-serif text-3xl font-medium shift-contrast">
               What Our Clients Say
             </h2>
 
@@ -80,7 +80,7 @@ export default function Testimonials() {
                       slide === i ? 'opacity-100' : 'pointer-events-none opacity-0'
                     }`}
                   >
-                    <div className="text-sm tracking-[0.3em] text-champagne">
+                    <div className="text-sm tracking-[0.3em] text-ivory">
                       ★★★★★
                     </div>
                     <blockquote className="mt-4 text-sm leading-relaxed text-zinc-300">
@@ -97,7 +97,7 @@ export default function Testimonials() {
                   <span
                     key={i}
                     className={`h-px w-6 transition-all duration-700 ${
-                      slide === i ? 'bg-champagne' : 'bg-zinc-700'
+                      slide === i ? 'bg-zinc-200' : 'bg-zinc-700'
                     }`}
                   />
                 ))}

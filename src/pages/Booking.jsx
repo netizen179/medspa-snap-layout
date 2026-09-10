@@ -52,13 +52,13 @@ export default function Booking() {
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
               Online Scheduling
             </p>
-            <h2 className="mt-2 mb-6 font-serif text-2xl font-light text-ivory">
+            <h2 className="mt-2 mb-6 font-serif text-2xl font-medium shift-contrast">
               Secure Your Session
             </h2>
 
             {/* Automated confirmation micro-notification */}
             <div
-              className={`absolute top-0 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-champagne/40 bg-black/90 px-5 py-2.5 text-[10px] uppercase tracking-[0.2em] text-champagne backdrop-blur transition-all duration-700 ${
+              className={`absolute top-0 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-champagne/40 bg-black/90 px-5 py-2.5 text-[10px] uppercase tracking-[0.2em] text-ivory backdrop-blur transition-all duration-700 ${
                 confirmed ? 'opacity-100' : 'pointer-events-none opacity-0'
               }`}
             >

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSmoothSnap } from './hooks/useSmoothSnap'
 import TopNav from './components/TopNav'
 import BookNowButton from './components/BookNowButton'
 import Hero from './pages/Hero'
@@ -12,13 +13,20 @@ import Footer from './pages/Footer'
  * template's `.fullpage-wrapper` class (see webflow_scroll_snap.webflow.io
      template CSS) while each 100vh layer is a `.section` snap point.
  */
+const SECTION_IDS = ['page-1', 'page-2', 'page-3', 'page-4', 'page-5']
+
 export default function App() {
   const [activeSection, setActiveSection] = useState('page-1')
+
+  /* Slow, buttery snap gliding between all 5 layers */
+  useSmoothSnap(SECTION_IDS)
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
+          /* Drives the global grayscale → ivory contrast fade */
+          entry.target.classList.toggle('is-active', entry.isIntersecting)
           if (entry.isIntersecting) setActiveSection(entry.target.id)
         })
       },

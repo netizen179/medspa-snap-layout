@@ -1,11 +1,11 @@
 # Base44 Dev Environment — Bare Esthetics (medspa-snap-layout)
 
 ## Project Overview
-A 5-layer, 100vh snap-scrolling medspa site ("Bare Esthetics") built with **React 18 + Vite 6 + Tailwind CSS v4**, served by a live-reload dev server on port 3000. The original Webflow export (`webflow_scroll_snap.webflow.io/`) remains in the repo as the snap-mechanics template reference: its `.fullpage-wrapper` / `.section` class system is mirrored in `src/index.css`, but the template's fullPage.js was deliberately NOT used — native CSS scroll-snap (`scroll-snap-type: y mandatory`) gives momentum-preserving transitions without scroll-jacking.
+A 5-layer, 100vh snap-scrolling medspa site ("Bare Esthetics") built with **React 18 + Vite 6 + Tailwind CSS v4**, served by a live-reload dev server on port 3000. The original Webflow export (`webflow_scroll_snap.webflow.io/`) remains in the repo as the snap-mechanics template reference: its `.fullpage-wrapper` / `.section` class system is mirrored in `src/index.css`. On fine-pointer devices, `src/hooks/useSmoothSnap.js` takes over the glide with an extra-long ease-in-out curve (~1.6s) and intercepts wheel/keys/anchors; touch devices keep native momentum with `scroll-snap-type: y proximity`. Text is champagne-free (grays + high-contrast whites only); headings use the `.shift-contrast` grayscale→ivory fade driven by the `.section.is-active` observer.
 
 ## Architecture
-- `src/pages/Hero.jsx` — Page 1: aspect-locked portrait frame + invisible 9-track hover grid REGISTERED to the portrait's measured ripple geometry; mobile accordion fallback below `md`.
-- `src/pages/Services.jsx` — Page 2: philosophy column + infinite cascading 7-card deck (click front card / Next → to shuffle).
+- `src/pages/Hero.jsx` — Page 1: aspect-locked portrait frame + invisible 9-track hover grid REGISTERED to the portrait's measured ripple geometry (hovered slice expands to ~full zone width; audio mutes during expansion, unmutes at transitionend, kills on leave); mobile accordion fallback below `md`.
+- `src/pages/Services.jsx` — Page 2: strict 50/50 split — philosophy LEFT, angled 5-card cascading deck RIGHT (tilted tray at rest, explodes into a 3+2 grid on container hover; click front card / Next → to shuffle). Deck intentionally shows 5 of the 7 treatments in `src/config/links.js`.
 - `src/pages/Testimonials.jsx` — Page 3: glassmorphic auto-rotating review slider + intake form (success state on submit).
 - `src/pages/Booking.jsx` — Page 4: glassmorphic Cal.com iframe scheduling portal.
 - `src/pages/Footer.jsx` — Page 5: brand anchor + 3-column logistics matrix.

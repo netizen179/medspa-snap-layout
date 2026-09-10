@@ -14,7 +14,7 @@ export default function Footer() {
     >
       {/* ---- Central brand identity anchor ---- */}
       <Reveal className="flex flex-col items-center text-center">
-        <h2 className="font-serif text-4xl font-light uppercase tracking-[0.25em] text-ivory md:text-6xl">
+        <h2 className="font-serif text-4xl font-medium uppercase tracking-[0.25em] shift-contrast md:text-6xl">
           Bare Esthetics
         </h2>
         <p className="mt-4 text-xs uppercase tracking-[0.35em] text-zinc-500">
