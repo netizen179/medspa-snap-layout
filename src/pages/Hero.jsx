@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import PortalOverlay from '../components/PortalOverlay'
 
 /* ==========================================================================
    PAGE 1 — THE HERO SCREEN LAYER
@@ -29,6 +30,14 @@ const RIPPLE_ZONE = { left: 41.31, width: 19.29 }
 /* Per-track flex-grow weights within the zone, from measured slice widths
    (sum ≈ 100). Hovered track grows ×3 while siblings compress ×0.75. */
 const TRACK_WEIGHTS = [11.4, 11.1, 11.5, 11.7, 11.1, 11.4, 12.0, 11.4, 8.4]
+
+/* Hover-widening is a desktop-only mechanic (lg+ width AND a fine
+   pointer) — mobile & tablet viewports use the fullscreen portal
+   overlay instead. */
+const canHover = () =>
+  typeof window !== 'undefined' &&
+  window.innerWidth >= 1024 &&
+  window.matchMedia('(hover: hover) and (pointer: fine)').matches
 
 const MEDIA_BASE =
   'https://mtgrgksrbadhigdnzeee.supabase.co/storage/v1/object/public/medspa-media/'
@@ -67,7 +76,7 @@ function SliceMedia({ media, visible, videoRef }) {
 
 export default function Hero() {
   const [hovered, setHovered] = useState(null)
-  const [openSlice, setOpenSlice] = useState(-1) // mobile accordion
+  const [portal, setPortal] = useState(null) // fullscreen slice viewer (touch)
   const videoRefs = useRef([])
   const contentRef = useRef(null)
   const sectionRef = useRef(null)
@@ -193,13 +202,18 @@ export default function Hero() {
               left: `${RIPPLE_ZONE.left}%`,
               width: `${RIPPLE_ZONE.width}%`,
             }}
-            onMouseLeave={() => setHovered(null)}
+            onMouseLeave={() => canHover() && setHovered(null)}
           >
             {SLICE_MEDIA.map((media, i) => (
               <div
                 key={i}
-                onMouseEnter={() => setHovered(i)}
+                onMouseEnter={() => canHover() && setHovered(i)}
                 onTransitionEnd={handleExpansionComplete(i)}
+                /* Tablet (no fine pointer): tapping the column opens
+                   the fullscreen portal overlay — no widening */
+                onClick={() => {
+                  if (!canHover()) setPortal(i)
+                }}
                 className="relative h-full cursor-pointer overflow-hidden"
                 style={{
                   /* Hovered track expands fully (≈ full slice-zone width)
@@ -223,14 +237,28 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* ---- Mobile: full-bleed cinematic portrait (accordion below
-            replaces the hover grid) ---- */}
+      {/* ---- Mobile: full-bleed cinematic portrait ---- */}
       <img
         src="/hero-ripple.png"
         alt=""
         className="absolute inset-0 h-full w-full object-cover object-[70%_center] md:hidden"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/40 md:hidden" />
+
+      {/* ---- Mobile: invisible vertical column touch zones. Tapping a
+            column scales that slice's media up to fill the screen via
+            the fullscreen portal overlay (slice-widening is disabled
+            on touch devices) ---- */}
+      <div className="absolute inset-0 z-[5] flex md:hidden">
+        {SLICE_MEDIA.map((media, i) => (
+          <button
+            key={i}
+            aria-label={`Open treatment media ${i + 1}`}
+            onClick={() => setPortal(i)}
+            className="h-full flex-1 cursor-pointer"
+          />
+        ))}
+      </div>
 
       {/* ---- Left-aligned hero typography (floats safely over the
             interaction masks) ---- */}
@@ -289,55 +317,19 @@ export default function Hero() {
             </a>
           </div>
 
-          {/* Mobile breaker fallback: vertically stacked accordion
-              (smooth height/opacity transition) replaces the hover grid */}
-          <div className="mt-8 w-full max-w-[380px] md:hidden">
-            <div className="border-t border-white/15">
-              {SLICE_MEDIA.map((media, i) => (
-                <div key={i} className="border-b border-white/15">
-                  <button
-                    onClick={() =>
-                      setOpenSlice(openSlice === i ? -1 : i)
-                    }
-                    className="flex w-full items-center justify-between py-2.5 text-[10px] uppercase tracking-[0.3em] text-[#999999]"
-                  >
-                    <span>{String(i + 1).padStart(2, '0')}</span>
-                    <span className="text-ivory">
-                      {openSlice === i ? '−' : '+'}
-                    </span>
-                  </button>
-                  <div
-                    className="overflow-hidden transition-all duration-500 ease-in-out"
-                    style={{
-                      maxHeight: openSlice === i ? 170 : 0,
-                      opacity: openSlice === i ? 1 : 0,
-                    }}
-                  >
-                    {media.type === 'video' ? (
-                      <video
-                        src={media.src}
-                        muted
-                        loop
-                        autoPlay
-                        playsInline
-                        preload="none"
-                        className="h-[150px] w-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={media.src}
-                        alt=""
-                        loading="lazy"
-                        className="h-[150px] w-full object-cover"
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
+
+      {/* ---- Fullscreen portal overlay (mobile & tablet slice viewer):
+            dismissal via the top-right ✕ box or a tap on the media
+            surface glides it down, pauses playback, kills the audio,
+            and returns the pristine portrait canvas ---- */}
+      {portal !== null && (
+        <PortalOverlay
+          media={SLICE_MEDIA[portal]}
+          onDone={() => setPortal(null)}
+        />
+      )}
     </section>
   )
 }

@@ -1,24 +1,28 @@
 import { useEffect, useState } from 'react'
 import Reveal from '../components/Reveal'
-import { CAL_BOOKING_PIPELINE } from '../config/booking'
+import { BOOKING_PIPELINE } from '../config/booking'
 
 /* ==========================================================================
    PAGE 4 — THE INTERACTIVE BOOKING PORTAL LAYER
 
+   Square checkout portal inside the dark luxury glassmorphic window
+   frame: the iframe embeds the verified, live Square booking URL
+   (BOOKING_PIPELINE.iframeUrl → SQUARE_BOOKING_URL in
+   src/config/links.js — the single source of truth shared with every
+   Page 2 treatment card).
+
    AUTOMATED CLIENT CALENDAR PIPELINE & EVENT RULES
    ------------------------------------------------
-   - The iframe below maps to our customer-facing Cal.com pipeline
-     dashboard (CAL_COM_EVENT_URL in src/config/links.js — point it at
-     the live booking event when the directory is published).
-   - The booking event is configured on a dedicated workflow calendar,
+   - Appointments are isolated on the spa's dedicated Square location,
      so the business organizer's personal phone calendar stays
      completely clean and free of clutter.
-   - The moment a client submits their data, the scheduling API pushes
-     a secure, verified calendar event / task reminder straight into
-     the CUSTOMER's personal Google Calendar app (e.g. "Wednesday 24th,
-     2:00 PM – Facial Botox at Bare Esthetics, Forest Hills").
-   - Transactional feedback state: we listen for Cal.com's postMessage
-     booking-success handshake and surface the confirmation banner:
+   - The moment a client logs their booking selection, Square executes
+     both automated hooks — the owner's spa account email profile gets
+     an immediate dashboard/email notification push, and the client
+     receives a verified task calendar reminder imprinted into their
+     personal Google Calendar mobile app timeline.
+   - Transactional feedback state: we listen for a booking-success
+     postMessage handshake and surface the confirmation banner:
      "Appointment Confirmed. Event task reminder synchronized to your
      personal calendar."
    ========================================================================== */
@@ -67,11 +71,11 @@ export default function Booking() {
             </div>
           </div>
 
-          {/* Cal.com inline integration module — takes the maximum
+          {/* Square inline booking module — takes the maximum
               internal height of the glass frame */}
           <iframe
             title="Bare Esthetics — online scheduling"
-            src={CAL_BOOKING_PIPELINE.iframeUrl}
+            src={BOOKING_PIPELINE.iframeUrl}
             className="min-h-0 w-full flex-1 rounded-lg border border-zinc-800/60 bg-black"
           />
         </div>

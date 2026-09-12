@@ -130,6 +130,12 @@ export default function Services() {
               style={{ transform: `translateX(${zoneShift}px)` }}
               onMouseEnter={() => canHover() && setExploded(true)}
               onMouseLeave={() => setExploded(false)}
+              /* Mobile & tablet viewports: a physical tap on the deck
+                 shuffles the angled cascade — top card slides out,
+                 shrinks, and shifts to the bottom of the z-index pile */
+              onClick={() => {
+                if (window.innerWidth < 1024) shuffle()
+              }}
             >
               {CARDS.map((t, cardIdx) => {
                 const pos = order.indexOf(cardIdx)
