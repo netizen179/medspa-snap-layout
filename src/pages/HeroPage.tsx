@@ -53,7 +53,7 @@ export function HeroPage({ scrollOpacity }: { scrollOpacity: number }) {
 
       {/* Desktop interaction grid — invisible interaction layer registered to ripple slices */}
       {!isMobile && (
-        <div className="absolute inset-0 z-10 flex">
+        <div className="absolute inset-y-0 left-[29%] right-0 z-10 flex overflow-hidden">
           {gridSlices.map((slice, index) => {
             // Proportional flex-basis from the ripple geometry, not equal divisions
             const flexBasis = (slice.widthPct / totalWidth) * 100
@@ -74,14 +74,14 @@ export function HeroPage({ scrollOpacity }: { scrollOpacity: number }) {
               >
                 {/* Hover media overlay — fades to full opacity on hover */}
                 <div
-                  className="absolute inset-0 overflow-hidden transition-opacity duration-500"
+                  className="absolute inset-0 overflow-hidden bg-black transition-opacity duration-500"
                   style={{ opacity: isHovered ? 1 : 0 }}
                 >
                   {slice.type === 'video' ? (
                     <video
                       ref={(el) => { videoRefs.current[index] = el }}
                       src={slice.src}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-center"
                       muted
                       loop
                       playsInline
@@ -90,7 +90,7 @@ export function HeroPage({ scrollOpacity }: { scrollOpacity: number }) {
                     <img
                       src={slice.src}
                       alt={slice.label}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-center"
                     />
                   )}
                   <div className="absolute inset-0 bg-black/20" />
