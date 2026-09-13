@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/BookNowButton.tsx","./src/components/Navigation.tsx","./src/data/content.ts","./src/pages/BookingPage.tsx","./src/pages/FooterPage.tsx","./src/pages/HeroPage.tsx","./src/pages/ServicesPage.tsx","./src/pages/TestimonialsPage.tsx"],"version":"5.9.3"}
