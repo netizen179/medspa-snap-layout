@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import PortalOverlay from '../components/PortalOverlay'
+import { useRippleGeometry } from '../hooks/useRippleGeometry'
 
 /* ==========================================================================
    PAGE 1 — THE HERO SCREEN LAYER
@@ -16,10 +16,15 @@ import PortalOverlay from '../components/PortalOverlay'
      (analysis confirmed the divisions are near-periodic, ~38px pitch,
      but NOT equal 11.11% tracks — the geometry below is measured).
 
-   The 9 transparent interaction columns live inside the SAME
-   aspect-locked frame as the <img>, so the grid and the image scale
-   together as a single composition and never drift apart. The portrait
-   itself is the source of truth for the grid geometry.
+   DESKTOP (lg+): the 9 transparent interaction columns live inside the SAME
+   aspect-locked frame as the <img>, so the grid and the image scale together
+   as a single composition and never drift apart.
+
+   MOBILE & TABLET (< lg): the portrait is full-bleed (object-fit: cover), so
+   the tracks cannot be fixed percentages of the viewport — they are projected
+   from the image coordinate space with the measured cover maths
+   (src/hooks/useRippleGeometry.js). Only the 9 real ripple lines are mapped;
+   the wide static ripples to their left are left completely untouched.
    ========================================================================== */
 
 const HERO_ASPECT = 1726 / 911
@@ -31,9 +36,12 @@ const RIPPLE_ZONE = { left: 41.31, width: 19.29 }
    (sum ≈ 100). Hovered track grows ×3 while siblings compress ×0.75. */
 const TRACK_WEIGHTS = [11.4, 11.1, 11.5, 11.7, 11.1, 11.4, 12.0, 11.4, 8.4]
 
+/* Mobile framing: centre the measured ripple zone in the viewport so all 9
+   narrow lines stay fully visible inside the cover crop. */
+const MOBILE_POS_X = 0.5096
+
 /* Hover-widening is a desktop-only mechanic (lg+ width AND a fine
-   pointer) — mobile & tablet viewports use the fullscreen portal
-   overlay instead. */
+   pointer) — mobile & tablet viewports use the tap-to-stretch track. */
 const canHover = () =>
   typeof window !== 'undefined' &&
   window.innerWidth >= 1024 &&
@@ -53,6 +61,8 @@ const SLICE_MEDIA = [
   { type: 'video', src: `${MEDIA_BASE}grid%20video-8.mp4` },
   { type: 'image', src: `${MEDIA_BASE}grid%20image-9.png` },
 ]
+
+const STRETCH_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)'
 
 function SliceMedia({ media, visible, videoRef }) {
   const cls = `absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
@@ -76,11 +86,22 @@ function SliceMedia({ media, visible, videoRef }) {
 
 export default function Hero() {
   const [hovered, setHovered] = useState(null)
-  const [portal, setPortal] = useState(null) // fullscreen slice viewer (touch)
+  const [activeSlice, setActiveSlice] = useState(null)
   const videoRefs = useRef([])
+  const mobileVideoRefs = useRef([])
+  const rampRef = useRef(0)
   const contentRef = useRef(null)
   const sectionRef = useRef(null)
   const hoveredRef = useRef(null)
+  const mobileWrapRef = useRef(null)
+  const mobileImgRef = useRef(null)
+
+  /* Mobile/tablet: 9 narrow tracks registered to the portrait's ripple lines */
+  const mobileGeometry = useRippleGeometry(
+    mobileImgRef,
+    mobileWrapRef,
+    MOBILE_POS_X
+  )
 
   useEffect(() => {
     hoveredRef.current = hovered
@@ -100,6 +121,44 @@ export default function Hero() {
     })
   }
 
+  /* Mobile/tablet tap-to-stretch audio: fade the tapped track up smoothly,
+     and kill it instantly on collapse (mute + volume 0). */
+  const killMobileAudio = () => {
+    cancelAnimationFrame(rampRef.current)
+    mobileVideoRefs.current.forEach((video) => {
+      if (!video) return
+      video.volume = 0
+      video.muted = true
+    })
+  }
+
+  const fadeUpMobileAudio = (video) => {
+    if (!video) return
+    video.muted = false
+    video.volume = 0
+    video.play().catch(() => {
+      video.muted = true
+    })
+    const start = performance.now()
+    const ramp = (now) => {
+      const progress = Math.min((now - start) / 700, 1)
+      video.volume = progress
+      if (progress < 1) rampRef.current = requestAnimationFrame(ramp)
+    }
+    rampRef.current = requestAnimationFrame(ramp)
+  }
+
+  const activateSlice = (i) => {
+    killMobileAudio()
+    setActiveSlice(i)
+    fadeUpMobileAudio(mobileVideoRefs.current[i])
+  }
+
+  const collapseSlice = () => {
+    killMobileAudio()
+    setActiveSlice(null)
+  }
+
   useEffect(() => {
     killAllAudio()
     if (hovered === null) return
@@ -109,7 +168,7 @@ export default function Hero() {
 
   /* The glide to another layer moves the hero out from under the
      cursor without a mouseleave — kill audio the moment the layer
-     leaves the viewport. */
+     leaves the viewport (desktop hover AND mobile tap alike). */
   useEffect(() => {
     const section = sectionRef.current
     if (!section) return
@@ -118,6 +177,8 @@ export default function Hero() {
         if (!entry.isIntersecting) {
           setHovered(null)
           killAllAudio()
+          setActiveSlice(null)
+          killMobileAudio()
         }
       },
       { threshold: 0.3 }
@@ -129,9 +190,15 @@ export default function Hero() {
   /* Never leave a video element playing (unmuted or not) after the
      component unmounts. */
   useEffect(() => {
-    const refs = videoRefs.current
+    const desktopRefs = videoRefs.current
+    const mobileRefs = mobileVideoRefs.current
     return () => {
-      refs.forEach((video) => {
+      desktopRefs.forEach((video) => {
+        if (!video) return
+        video.muted = true
+        video.pause()
+      })
+      mobileRefs.forEach((video) => {
         if (!video) return
         video.muted = true
         video.pause()
@@ -177,8 +244,8 @@ export default function Hero() {
       ref={sectionRef}
       className="section relative h-screen min-h-[640px] overflow-hidden bg-black"
     >
-      {/* ---- Portrait, aspect-locked (grid registration frame) ---- */}
-      <div className="absolute inset-0 hidden items-center justify-center md:flex">
+      {/* ---- Portrait, aspect-locked (desktop grid registration frame) ---- */}
+      <div className="absolute inset-0 hidden items-center justify-center lg:flex">
         <div
           className="relative"
           style={{
@@ -197,7 +264,7 @@ export default function Hero() {
                 the portrait's ripple slices. Default state: fully
                 transparent and borderless — no second visible grid. ---- */}
           <div
-            className="absolute inset-y-0 hidden md:flex"
+            className="absolute inset-y-0 hidden lg:flex"
             style={{
               left: `${RIPPLE_ZONE.left}%`,
               width: `${RIPPLE_ZONE.width}%`,
@@ -209,11 +276,6 @@ export default function Hero() {
                 key={i}
                 onMouseEnter={() => canHover() && setHovered(i)}
                 onTransitionEnd={handleExpansionComplete(i)}
-                /* Tablet (no fine pointer): tapping the column opens
-                   the fullscreen portal overlay — no widening */
-                onClick={() => {
-                  if (!canHover()) setPortal(i)
-                }}
                 className="relative h-full cursor-pointer overflow-hidden"
                 style={{
                   /* Hovered track expands fully (≈ full slice-zone width)
@@ -237,45 +299,92 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* ---- Mobile: full-bleed cinematic portrait ---- */}
-      <img
-        src="/hero-ripple.png"
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover object-[70%_center] md:hidden"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/40 md:hidden" />
+      {/* ---- MOBILE & TABLET: full-bleed portrait with 9 narrow living
+            ripple tracks registered to the image's measured ripple lines.
+            Only those 9 lines are mapped — the wide static ripples to
+            their left are left completely untouched. ---- */}
+      <div ref={mobileWrapRef} className="absolute inset-0 lg:hidden">
+        <img
+          ref={mobileImgRef}
+          src="/hero-ripple.png"
+          alt=""
+          draggable="false"
+          className="absolute inset-0 h-full w-full select-none object-cover"
+          style={{ objectPosition: `${MOBILE_POS_X * 100}% 50%` }}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/35" />
 
-      {/* ---- Mobile: invisible vertical column touch zones. Tapping a
-            column scales that slice's media up to fill the screen via
-            the fullscreen portal overlay (slice-widening is disabled
-            on touch devices) ---- */}
-      <div className="absolute inset-0 z-[5] flex md:hidden">
-        {SLICE_MEDIA.map((media, i) => (
+        <div className="absolute inset-0 z-[5]">
+          {mobileGeometry.map((track, i) => {
+            const media = SLICE_MEDIA[i]
+            const active = activeSlice === i
+            return (
+              <button
+                key={i}
+                aria-label={`Expand treatment media ${i + 1}`}
+                onClick={() => (active ? collapseSlice() : activateSlice(i))}
+                className="absolute top-0 h-full cursor-pointer overflow-hidden"
+                style={{
+                  /* Collapsed: exactly the narrow ripple line.
+                     Tapped: stretches fluidly to the full viewport width. */
+                  left: `${active ? 0 : track.left}%`,
+                  width: `${active ? 100 : track.width}%`,
+                  zIndex: active ? 40 : 5,
+                  transition: `left 0.7s ${STRETCH_EASE}, width 0.7s ${STRETCH_EASE}`,
+                }}
+              >
+                {media.type === 'video' ? (
+                  <video
+                    ref={(el) => (mobileVideoRefs.current[i] = el)}
+                    src={media.src}
+                    muted
+                    loop
+                    autoPlay
+                    playsInline
+                    preload="metadata"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={media.src}
+                    alt=""
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Clean translucent dismiss box for the stretched layer */}
+        {activeSlice !== null && (
           <button
-            key={i}
-            aria-label={`Open treatment media ${i + 1}`}
-            onClick={() => setPortal(i)}
-            className="h-full flex-1 cursor-pointer"
-          />
-        ))}
+            aria-label="Close media view"
+            onClick={collapseSlice}
+            className="absolute top-4 right-4 z-[45] border border-zinc-500/40 bg-black/60 px-3.5 py-2.5 text-xs tracking-widest text-zinc-300 backdrop-blur transition-colors duration-300 hover:text-ivory"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* ---- Left-aligned hero typography (floats safely over the
             interaction masks) ---- */}
       <div
         ref={contentRef}
-        className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end px-[6vw] pb-8 md:justify-center md:px-[7vw] md:pb-0"
+        className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end px-[6vw] pb-8 lg:justify-center lg:px-[7vw] lg:pb-0"
       >
         <div className="w-full max-w-3xl">
           <p
-            className="anim-fade-up text-[10px] uppercase tracking-[0.35em] text-[#BDBDBD] md:text-[11px]"
+            className="anim-fade-up text-[10px] uppercase tracking-[0.35em] text-[#BDBDBD] lg:text-[11px]"
             style={{ animationDelay: '0.35s' }}
           >
             Redefining Perfection
           </p>
 
           <h1
-            className="anim-fade-up mt-5 font-serif text-[clamp(46px,7.5vw,96px)] font-medium uppercase leading-[0.98] tracking-[0.01em] md:mt-6"
+            className="anim-fade-up mt-5 font-serif text-[clamp(46px,7.5vw,96px)] font-medium uppercase leading-[0.98] tracking-[0.01em] lg:mt-6"
             style={{ animationDelay: '0.5s' }}
           >
             {/* Chop vertical split: off-white upper half fading into
@@ -285,7 +394,7 @@ export default function Hero() {
           </h1>
 
           <p
-            className="anim-fade-up mt-6 max-w-[380px] text-[15px] leading-[1.6] text-[#D0D0D0] md:mt-7 md:text-base"
+            className="anim-fade-up mt-6 max-w-[380px] text-[15px] leading-[1.6] text-[#D0D0D0] lg:mt-7 lg:text-base"
             style={{ animationDelay: '0.7s' }}
           >
             Where artistry meets innovation.
@@ -294,7 +403,7 @@ export default function Hero() {
           </p>
 
           <div
-            className="anim-fade-up pointer-events-auto mt-8 flex flex-col items-start gap-5 md:mt-10"
+            className="anim-fade-up pointer-events-auto mt-8 flex flex-col items-start gap-5 lg:mt-10"
             style={{ animationDelay: '0.9s' }}
           >
             <a
@@ -319,17 +428,6 @@ export default function Hero() {
 
         </div>
       </div>
-
-      {/* ---- Fullscreen portal overlay (mobile & tablet slice viewer):
-            dismissal via the top-right ✕ box or a tap on the media
-            surface glides it down, pauses playback, kills the audio,
-            and returns the pristine portrait canvas ---- */}
-      {portal !== null && (
-        <PortalOverlay
-          media={SLICE_MEDIA[portal]}
-          onDone={() => setPortal(null)}
-        />
-      )}
     </section>
   )
 }
