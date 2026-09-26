@@ -5,20 +5,23 @@ import BookNowButton from './components/BookNowButton'
 import Hero from './pages/Hero'
 import Services from './pages/Services'
 import Testimonials from './pages/Testimonials'
-import Booking from './pages/Booking'
 import Footer from './pages/Footer'
 
 /*
- * 5-layer vertical snap application. The scroll container uses the
+ * 4-layer vertical snap application. The scroll container uses the
  * template's `.fullpage-wrapper` class (see webflow_scroll_snap.webflow.io
      template CSS) while each 100vh layer is a `.section` snap point.
+ *
+ * The standalone Page 4 booking portal has been removed globally: the
+ * stack now glides from Page 3 (Testimonials) straight into Page 5
+ * (the final contact panel / footer hub).
  */
-const SECTION_IDS = ['page-1', 'page-2', 'page-3', 'page-4', 'page-5']
+const SECTION_IDS = ['page-1', 'page-2', 'page-3', 'page-5']
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('page-1')
 
-  /* Slow, buttery snap gliding between all 5 layers */
+  /* Slow, buttery snap gliding between every layer */
   useSmoothSnap(SECTION_IDS)
 
   useEffect(() => {
@@ -43,11 +46,11 @@ export default function App() {
         <Hero />
         <Services />
         <Testimonials />
-        <Booking />
         <Footer />
       </main>
-      {/* Persistent floating action — fades out only inside the booking layer */}
-      <BookNowButton hidden={activeSection === 'page-4'} />
+      {/* Persistent floating action — the booking journey is now a direct
+          Square handoff from the cards, so it is always available. */}
+      <BookNowButton />
     </div>
   )
 }

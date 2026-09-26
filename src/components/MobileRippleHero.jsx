@@ -2,34 +2,37 @@ import { useEffect, useRef, useState } from 'react'
 import { useRippleGeometry } from '../hooks/useRippleGeometry'
 
 /* ==========================================================================
-   PAGE 1 — MOBILE / TABLET RIPPLE ENGINE (< lg)
+   PAGE 1 — MOBILE / TABLET MEDIA WAVE ENGINE (< lg)
    ==========================================================================
    The 9 code columns are completely transparent, colourless and borderless
    by default — only the monochrome portrait canvas shows. Each column is a
    track registered to the portrait's measured ripple lines (see
    useRippleGeometry) and holds a looping media reel.
 
-   ROLLING INACTIVITY SLIDE ENGINE
-   After load, while the visitor stays inactive on Page 1, each video slice
-   unrolls horizontally to the right from its fixed stationary position
-   (left edge pinned, right edge unfolding into the open space), plays with
-   audio fading up, then collapses back to its narrow line after 3s and the
-   next slice takes over — a continuous rolling loop.
+   ONE-TIME INTRO MEDIA WAVE
+   Immediately after the site finishes loading, all 9 image/video ripple
+   slices execute a single unified cascading "Media Wave": each track
+   stretches to the right, stacking over the previous one in sequence until
+   the final slice is revealed. The expanded wave holds on absolute mute for
+   exactly 3 seconds, then every track pulls back individually, one by one,
+   into its original narrow masked groove. The wave runs once per page load
+   and never again until the page is fully refreshed.
 
-   MANUAL OVERRIDES
-   - Tapping a slice halts the auto loop and expands that slice manually.
+   MANUAL TOUCH OVERRIDES (armed once the intro wave has pulled back)
+   - Tapping a slice stretches it open to the right and unmutes its audio.
    - Video slices stay expanded and audible until the clip ends or ✕.
    - Image slices lock expanded for exactly 3s, then auto-collapse.
-   - ✕ or a tap on the background canvas collapses instantly and resumes
-     the automated rolling engine.
+   - ✕ or a tap on the background canvas collapses instantly.
    - Scrolling off Page 1 hard-kills every media audio stream instantly.
    ========================================================================== */
 
 /* Centre the measured ripple zone so all 9 narrow lines stay in the crop */
 const MOBILE_POS_X = 0.5096
 
-const AUTO_HOLD_MS = 3000
-const AUTO_START_MS = 1400
+const SLICE_COUNT = 9
+const INTRO_STEP_MS = 190
+const INTRO_HOLD_MS = 3000
+const INTRO_SETTLE_MS = 420
 const IMAGE_HOLD_MS = 3000
 const AUDIO_FADE_MS = 700
 const STRETCH_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)'
@@ -41,16 +44,15 @@ export default function MobileRippleHero({ media }) {
   const rampRef = useRef(0)
   const imageTimerRef = useRef(0)
 
-  const [visible, setVisible] = useState(true)
-  const [autoIndex, setAutoIndex] = useState(null)
+  /* idle → wave → hold → retract → ready */
+  const [phase, setPhase] = useState('idle')
+  const [waveCount, setWaveCount] = useState(0)
   const [manualIndex, setManualIndex] = useState(null)
 
   const geometry = useRippleGeometry(imgRef, wrapRef, MOBILE_POS_X)
-  const videoIndices = media
-    .map((m, i) => (m.type === 'video' ? i : -1))
-    .filter((i) => i >= 0)
 
-  const activeIndex = manualIndex !== null ? manualIndex : autoIndex
+  const introRunning =
+    phase === 'wave' || phase === 'hold' || phase === 'retract'
 
   /* Hard kill — mute, zero the volume, pause, restore looping */
   const killAudio = () => {
@@ -61,6 +63,17 @@ export default function MobileRippleHero({ media }) {
       video.volume = 0
       video.pause()
       video.loop = true
+    })
+  }
+
+  /* Every slice plays silent while the intro wave is on screen */
+  const playAllMuted = () => {
+    videoRefs.current.forEach((video) => {
+      if (!video) return
+      video.muted = true
+      video.volume = 0
+      video.loop = true
+      video.play().catch(() => {})
     })
   }
 
@@ -75,10 +88,13 @@ export default function MobileRippleHero({ media }) {
       video.muted = true
       video.play().catch(() => {})
     })
-    const start = performance.now()
+    /* rAF timestamps can precede performance.now(), so anchor the ramp to
+       the first frame and clamp the volume into the legal 0…1 range. */
+    let start = null
     const ramp = (now) => {
       if (video.muted) return
-      const progress = Math.min((now - start) / AUDIO_FADE_MS, 1)
+      if (start === null) start = now
+      const progress = Math.min(Math.max((now - start) / AUDIO_FADE_MS, 0), 1)
       video.volume = progress
       if (progress < 1) rampRef.current = requestAnimationFrame(ramp)
     }
@@ -97,42 +113,58 @@ export default function MobileRippleHero({ media }) {
     fadeUp(video)
   }
 
-  /* ---- ROLLING INACTIVITY SLIDE ENGINE ---- */
+  /* ---- ONE-TIME INTRO MEDIA WAVE ----
+     Starts the moment the measured ripple geometry is ready, runs once per
+     page load, and never triggers again until a full refresh. */
   useEffect(() => {
-    if (!visible || manualIndex !== null || geometry.length === 0) return
-    if (videoIndices.length === 0) return
+    if (geometry.length !== SLICE_COUNT) return
 
     let cancelled = false
-    let cursor = 0
-    let holdTimer = 0
+    const timers = []
+    const later = (fn, ms) => timers.push(setTimeout(fn, ms))
 
-    const step = () => {
-      if (cancelled) return
-      const index = videoIndices[cursor]
-      setAutoIndex(index)
-      startSlice(index, true)
-      holdTimer = setTimeout(() => {
-        if (cancelled) return
-        const video = videoRefs.current[index]
-        if (video) {
-          video.muted = true
-          video.volume = 0
-          video.pause()
-        }
-        cursor = (cursor + 1) % videoIndices.length
-        step()
-      }, AUTO_HOLD_MS)
+    setPhase('wave')
+    setWaveCount(0)
+    playAllMuted()
+
+    /* Cascade: each track stretches to the right, stacking over the last */
+    for (let i = 1; i <= SLICE_COUNT; i++) {
+      later(() => {
+        if (!cancelled) setWaveCount(i)
+      }, i * INTRO_STEP_MS)
     }
 
-    const startTimer = setTimeout(step, AUTO_START_MS)
+    /* Hold the fully expanded wave on absolute mute for 3 seconds */
+    const waveEnd = SLICE_COUNT * INTRO_STEP_MS
+    later(() => {
+      if (!cancelled) setPhase('hold')
+    }, waveEnd)
+
+    /* Retract: every track pulls back individually, one by one */
+    const retractStart = waveEnd + INTRO_HOLD_MS
+    later(() => {
+      if (!cancelled) setPhase('retract')
+    }, retractStart)
+    for (let i = 1; i <= SLICE_COUNT; i++) {
+      later(() => {
+        if (!cancelled) setWaveCount(SLICE_COUNT - i)
+      }, retractStart + i * INTRO_STEP_MS)
+    }
+
+    /* Intro complete — silence everything and arm the tap overrides */
+    later(() => {
+      if (cancelled) return
+      setWaveCount(0)
+      setPhase('ready')
+      killAudio()
+    }, retractStart + SLICE_COUNT * INTRO_STEP_MS + INTRO_SETTLE_MS)
+
     return () => {
       cancelled = true
-      clearTimeout(startTimer)
-      clearTimeout(holdTimer)
-      cancelAnimationFrame(rampRef.current)
-      setAutoIndex(null)
+      timers.forEach(clearTimeout)
     }
-  }, [visible, manualIndex, geometry.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geometry.length])
 
   /* ---- Scroll audio kill: the moment Page 1 leaves the viewport ---- */
   useEffect(() => {
@@ -140,10 +172,8 @@ export default function MobileRippleHero({ media }) {
     if (!el) return
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setVisible(entry.isIntersecting)
         if (!entry.isIntersecting) {
           killAudio()
-          setAutoIndex(null)
           setManualIndex(null)
         }
       },
@@ -173,12 +203,13 @@ export default function MobileRippleHero({ media }) {
     setManualIndex(null)
   }
 
-  /* Manual tap: halt the auto loop, expand this slice, fade its audio up */
+  /* Manual tap (armed only after the intro wave has pulled back):
+     stretch this slice open and fade its audio up. */
   const handleTap = (index) => {
+    if (phase !== 'ready') return
     if (manualIndex === index) return
     killAudio()
     clearTimeout(imageTimerRef.current)
-    setAutoIndex(null)
     setManualIndex(index)
     if (media[index].type === 'video') {
       startSlice(index, false)
@@ -209,7 +240,9 @@ export default function MobileRippleHero({ media }) {
       <div className="absolute inset-0 z-[5]">
         {geometry.map((track, i) => {
           const item = media[i]
-          const expanded = activeIndex === i
+          const introExpanded = introRunning && i < waveCount
+          const manualExpanded = manualIndex === i
+          const expanded = introExpanded || manualExpanded
           const mediaCls = `absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
             expanded ? 'opacity-100' : 'opacity-0'
           }`
@@ -223,7 +256,7 @@ export default function MobileRippleHero({ media }) {
                 /* Left edge stays pinned; the slice unrolls to the right */
                 left: `${track.left}%`,
                 width: `${expanded ? 100 - track.left : track.width}%`,
-                zIndex: expanded ? 40 : 5,
+                zIndex: manualExpanded ? 40 : introExpanded ? 10 + i : 5,
                 transition: `width 0.7s ${STRETCH_EASE}`,
               }}
             >

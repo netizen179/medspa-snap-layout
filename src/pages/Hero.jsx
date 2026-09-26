@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import MobileRippleHero from '../components/MobileRippleHero'
+import { SQUARE_BOOKING_URL } from '../config/links'
 
 /* ==========================================================================
    PAGE 1 — THE HERO SCREEN LAYER
@@ -284,7 +285,9 @@ export default function Hero() {
               </span>
             </a>
             <a
-              href="#page-4"
+              href={SQUARE_BOOKING_URL}
+              target="_blank"
+              rel="noreferrer"
               className="group inline-flex items-center gap-3 border border-champagne/40 px-5 py-2.5 text-[11px] uppercase tracking-[0.25em] text-ivory transition-all duration-500 hover:bg-champagne hover:text-black"
             >
               Book Appointment

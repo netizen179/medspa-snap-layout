@@ -12,6 +12,13 @@ import { SQUARE_BOOKING_URL, TREATMENTS } from '../config/links'
    aesthetic) and explode into a spacious 3+2 grid on container hover —
    scaled per breakpoint (.deck-zone vars) and re-centered on the
    viewport so the matrix always fits inside the screen boundaries.
+
+   UNIVERSAL SHUFFLE LOOP (desktop & mobile): tapping/clicking the card
+   area runs a true sequential cycle — the front card slides right, drops
+   its depth index and translates to the absolute back of the pile while
+   every remaining card steps one slot forward. The BOOK NOW button on the
+   front card is the only element that leaves the site: it opens that
+   service's Square checkout in a fresh browser tab.
    ========================================================================== */
 
 /* The deck shows the 5 services exactly as named in the live Square
@@ -30,30 +37,32 @@ const CARDS = TREATMENTS.slice(0, 5).map((treatment, i) => ({
 }))
 
 /* Angled stack: cards tilt and fan programmatically in 3D while
-   cascading back into infinite depth (center-anchored offsets). */
+   cascading back into infinite depth (center-anchored offsets). The lead
+   card stays at full contrast; the four behind fade into lower opacities. */
 const STACKED = [
   'z-[50] translate-y-[55px] rotate-0 scale-100 opacity-100',
-  'z-[45] translate-y-[43px] rotate-[2.5deg] scale-[0.95] opacity-90',
-  'z-[40] translate-y-[31px] rotate-[-2.5deg] scale-[0.90] opacity-80',
-  'z-[35] translate-y-[19px] rotate-[5deg] scale-[0.85] opacity-70',
-  'z-[30] translate-y-[7px] rotate-[-5deg] scale-[0.80] opacity-60',
+  'z-[45] translate-y-[43px] rotate-[2.5deg] scale-[0.95] opacity-80',
+  'z-[40] translate-y-[31px] rotate-[-2.5deg] scale-[0.90] opacity-65',
+  'z-[35] translate-y-[19px] rotate-[5deg] scale-[0.85] opacity-50',
+  'z-[30] translate-y-[7px] rotate-[-5deg] scale-[0.80] opacity-40',
 ]
 
 /* Mobile & tablet stack: the same cascade expressed with true 3D rotational
-   scale-down values (rotateY + perspective) and matching layer indexes. */
+   scale-down values (rotateY + perspective) and matching layer indexes.
+   Offsets are symmetric around the centre so the pile sits dead-centre. */
 const MOBILE_STACKED = [
   'z-[50] opacity-100',
-  'z-[45] opacity-90',
-  'z-[40] opacity-80',
-  'z-[35] opacity-70',
-  'z-[30] opacity-60',
+  'z-[45] opacity-80',
+  'z-[40] opacity-65',
+  'z-[35] opacity-50',
+  'z-[30] opacity-40',
 ]
 const MOBILE_STACKED_TRANSFORM = [
-  'translate3d(0, 52px, 0) rotateY(0deg) scale(1)',
-  'translate3d(0, 39px, 0) rotateY(6deg) scale(0.95)',
-  'translate3d(0, 26px, 0) rotateY(-6deg) scale(0.90)',
-  'translate3d(0, 13px, 0) rotateY(8deg) scale(0.85)',
-  'translate3d(0, 0px, 0) rotateY(-8deg) scale(0.80)',
+  'translate3d(0, 26px, 0) rotateY(0deg) scale(1)',
+  'translate3d(0, 13px, 0) rotateY(6deg) scale(0.95)',
+  'translate3d(0, 0px, 0) rotateY(-6deg) scale(0.90)',
+  'translate3d(0, -13px, 0) rotateY(8deg) scale(0.85)',
+  'translate3d(0, -26px, 0) rotateY(-8deg) scale(0.80)',
 ]
 
 /* Exploding grid slots: 3 cards across the top row, 2 centered below.
@@ -67,15 +76,15 @@ const EXPLODED = [
   'z-10 translate-x-[calc(var(--deck-x)/2)] translate-y-[var(--deck-y)] rotate-0 scale-[var(--deck-s)] opacity-100',
 ]
 
-/* Front-card exit state: slides 150px right, shrinks, fades — then
-   glides back into the deepest base position. */
+/* Front-card exit state: slides right, drops its layer index, then
+   glides into the absolute back of the pile. */
 const LEAVING = 'z-[60] translate-y-[55px] translate-x-[150px] scale-[0.8] opacity-0'
 
-/* Mobile & tablet exit: a crisp 3D translate-x sweep to the side, then the
+/* Mobile & tablet exit: a crisp 3D translate-x sweep to the right, then the
    card slides back into the absolute bottom of the pile. */
 const MOBILE_LEAVING = 'z-[60] opacity-0'
 const MOBILE_LEAVING_TRANSFORM =
-  'translate3d(150px, 52px, 0) rotateY(-55deg) scale(0.8)'
+  'translate3d(150px, 26px, 0) rotateY(-55deg) scale(0.8)'
 
 const TRANSITION_MS = 700
 const BANNER_MS = 1500
@@ -161,10 +170,11 @@ export default function Services() {
     return () => window.removeEventListener('resize', recenter)
   }, [exploded])
 
-  /* TRUE ROTATIONAL REACTION LOOP — the whole array rotates together:
-     the front card sweeps out, then every card steps one slot forward. */
+  /* TRUE SEQUENTIAL SHUFFLE LOOP — the whole array rotates together:
+     the front card sweeps out, drops its layer index, and every card
+     steps one slot forward (1 → 2 → 3 → 4 → 5 → 1). */
   const shuffle = () => {
-    if (busyRef.current || exploded) return
+    if (busyRef.current) return
     busyRef.current = true
     setLeaving(cards[0].id)
     setTimeout(() => {
@@ -172,12 +182,6 @@ export default function Services() {
       setLeaving(null)
       busyRef.current = false
     }, TRANSITION_MS)
-  }
-
-  /* Direct Square handoff — selecting a card leaves the site wrapper and
-     opens that service's Square checkout in a fresh browser tab. */
-  const openSquare = (link) => {
-    window.open(link || SQUARE_BOOKING_URL, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -225,7 +229,9 @@ export default function Services() {
             </span>
           </div>
 
-          <div className="flex w-full flex-col items-center">
+          {/* Dead-centre flex grid: the deck sits in the exact horizontal
+              and vertical middle of Page 2B on mobile & tablet. */}
+          <div className="flex h-full w-full flex-col items-center justify-center">
             {/* Hover zone covers the full exploded matrix so cards
                 never leave the interactive area while expanded */}
             <div
@@ -234,10 +240,8 @@ export default function Services() {
               style={{ transform: `translateX(${zoneShift}px)` }}
               onMouseEnter={() => canHover() && setExploded(true)}
               onMouseLeave={() => setExploded(false)}
-              /* Taps on empty deck space still rotate the cascade */
-              onClick={() => {
-                if (isCompactViewport()) shuffle()
-              }}
+              /* Tapping/clicking the card area cycles the pile */
+              onClick={shuffle}
             >
               {cards.map((t, pos) => {
                 const isFront = pos === 0
@@ -252,14 +256,17 @@ export default function Services() {
                      centers on it via translate, so the wrapper's layout
                      box never overflows the section (mobile-safe). */
                   <div key={t.id} className="absolute top-1/2 left-1/2 h-0 w-0">
+                    {/* w-fit gives the wrapper a real width so
+                        -translate-x-1/2 truly centres the card on the
+                        anchor (a zero-width parent makes it a no-op). */}
                     <div
-                      className="-translate-x-1/2 -translate-y-1/2"
+                      className={`-translate-x-1/2 -translate-y-1/2 ${isCompact ? 'w-fit' : ''}`}
                       style={isCompact ? { perspective: '900px' } : undefined}
                     >
                       <article
                         onClick={(e) => {
                           e.stopPropagation()
-                          openSquare(t.link)
+                          shuffle()
                         }}
                         style={
                           isCompact
@@ -270,13 +277,15 @@ export default function Services() {
                               }
                             : undefined
                         }
-                        className={`h-[min(430px,64dvh)] w-[min(330px,84vw)] cursor-pointer border border-champagne/40 bg-black p-6 shadow-[0_25px_60px_rgba(0,0,0,0.85)] transition-all duration-700 lg:h-[430px] lg:w-[330px] ${EASE} ${
+                        className={`h-[min(430px,64dvh)] w-[min(330px,84vw)] cursor-pointer border bg-black p-6 shadow-[0_25px_60px_rgba(0,0,0,0.85)] transition-all duration-700 lg:h-[430px] lg:w-[330px] ${EASE} ${
+                          isFront ? 'border-champagne/60' : 'border-champagne/25'
+                        } ${
                           isCompact
                             ? isLeaving
                               ? MOBILE_LEAVING
                               : MOBILE_STACKED[pos]
                             : desktopMode
-                        } ${isFront ? '' : 'pointer-events-auto'}`}
+                        }`}
                       >
                         <div className="flex h-full flex-col">
                           <span className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">
@@ -293,10 +302,13 @@ export default function Services() {
                               href={t.link || SQUARE_BOOKING_URL}
                               target="_blank"
                               rel="noreferrer"
+                              /* Direct Square handoff: the BOOK NOW button
+                                 bypasses every internal page and opens the
+                                 checkout in a fresh browser tab. */
                               onClick={(e) => e.stopPropagation()}
                               className="inline-flex items-center gap-2 border border-champagne/50 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-ivory transition-colors duration-300 hover:bg-champagne hover:text-black"
                             >
-                              Book This Treatment
+                              Book Now
                               <span>→</span>
                             </a>
                           </div>
@@ -308,10 +320,12 @@ export default function Services() {
               })}
             </div>
 
+            {/* Shuffle trigger — pinned to the bottom on mobile so it never
+                pulls the deck off the vertical centre of Page 2B. */}
             <button
               onClick={shuffle}
               disabled={exploded}
-              className="mt-8 inline-flex items-center gap-3 border-b border-champagne/40 pb-1 text-[11px] uppercase tracking-[0.25em] text-zinc-200 transition-colors duration-300 hover:border-ivory hover:text-ivory disabled:opacity-40"
+              className="absolute bottom-10 left-1/2 inline-flex -translate-x-1/2 items-center gap-3 border-b border-champagne/40 pb-1 text-[11px] uppercase tracking-[0.25em] text-zinc-200 transition-colors duration-300 hover:border-ivory hover:text-ivory disabled:opacity-40 lg:static lg:bottom-auto lg:left-auto lg:mt-8 lg:translate-x-0"
             >
               Next
               <span>→</span>
