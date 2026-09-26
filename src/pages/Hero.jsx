@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useRippleGeometry } from '../hooks/useRippleGeometry'
+import MobileRippleHero from '../components/MobileRippleHero'
 
 /* ==========================================================================
    PAGE 1 — THE HERO SCREEN LAYER
@@ -20,11 +20,9 @@ import { useRippleGeometry } from '../hooks/useRippleGeometry'
    aspect-locked frame as the <img>, so the grid and the image scale together
    as a single composition and never drift apart.
 
-   MOBILE & TABLET (< lg): the portrait is full-bleed (object-fit: cover), so
-   the tracks cannot be fixed percentages of the viewport — they are projected
-   from the image coordinate space with the measured cover maths
-   (src/hooks/useRippleGeometry.js). Only the 9 real ripple lines are mapped;
-   the wide static ripples to their left are left completely untouched.
+   MOBILE & TABLET (< lg): rendered by <MobileRippleHero /> — transparent
+   tracks registered to the same measured ripple lines, plus the rolling
+   inactivity slide engine.
    ========================================================================== */
 
 const HERO_ASPECT = 1726 / 911
@@ -35,10 +33,6 @@ const RIPPLE_ZONE = { left: 41.31, width: 19.29 }
 /* Per-track flex-grow weights within the zone, from measured slice widths
    (sum ≈ 100). Hovered track grows ×3 while siblings compress ×0.75. */
 const TRACK_WEIGHTS = [11.4, 11.1, 11.5, 11.7, 11.1, 11.4, 12.0, 11.4, 8.4]
-
-/* Mobile framing: centre the measured ripple zone in the viewport so all 9
-   narrow lines stay fully visible inside the cover crop. */
-const MOBILE_POS_X = 0.5096
 
 /* Hover-widening is a desktop-only mechanic (lg+ width AND a fine
    pointer) — mobile & tablet viewports use the tap-to-stretch track. */
@@ -62,8 +56,6 @@ const SLICE_MEDIA = [
   { type: 'image', src: `${MEDIA_BASE}grid%20image-9.png` },
 ]
 
-const STRETCH_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)'
-
 function SliceMedia({ media, visible, videoRef }) {
   const cls = `absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
     visible ? 'opacity-100' : 'opacity-0'
@@ -86,30 +78,18 @@ function SliceMedia({ media, visible, videoRef }) {
 
 export default function Hero() {
   const [hovered, setHovered] = useState(null)
-  const [activeSlice, setActiveSlice] = useState(null)
   const videoRefs = useRef([])
-  const mobileVideoRefs = useRef([])
-  const rampRef = useRef(0)
   const contentRef = useRef(null)
   const sectionRef = useRef(null)
   const hoveredRef = useRef(null)
-  const mobileWrapRef = useRef(null)
-  const mobileImgRef = useRef(null)
-
-  /* Mobile/tablet: 9 narrow tracks registered to the portrait's ripple lines */
-  const mobileGeometry = useRippleGeometry(
-    mobileImgRef,
-    mobileWrapRef,
-    MOBILE_POS_X
-  )
 
   useEffect(() => {
     hoveredRef.current = hovered
   }, [hovered])
 
-  /* AUDIO SYNC — hard rule: only ONE sound can ever exist.
-     The hovered track plays muted while its column expands; the sound
-     fades in the exact moment expansion completes (transitionend).
+  /* AUDIO SYNC (desktop hover grid) — hard rule: only ONE sound can ever
+     exist. The hovered track plays muted while its column expands; the
+     sound fades in the exact moment expansion completes (transitionend).
      Every hover change, mouse leave, or layer exit KILLS ALL audio
      (mute + pause) first — only then does the hovered track restart,
      muted — so overlapping sound clashes are impossible. */
@@ -121,44 +101,6 @@ export default function Hero() {
     })
   }
 
-  /* Mobile/tablet tap-to-stretch audio: fade the tapped track up smoothly,
-     and kill it instantly on collapse (mute + volume 0). */
-  const killMobileAudio = () => {
-    cancelAnimationFrame(rampRef.current)
-    mobileVideoRefs.current.forEach((video) => {
-      if (!video) return
-      video.volume = 0
-      video.muted = true
-    })
-  }
-
-  const fadeUpMobileAudio = (video) => {
-    if (!video) return
-    video.muted = false
-    video.volume = 0
-    video.play().catch(() => {
-      video.muted = true
-    })
-    const start = performance.now()
-    const ramp = (now) => {
-      const progress = Math.min((now - start) / 700, 1)
-      video.volume = progress
-      if (progress < 1) rampRef.current = requestAnimationFrame(ramp)
-    }
-    rampRef.current = requestAnimationFrame(ramp)
-  }
-
-  const activateSlice = (i) => {
-    killMobileAudio()
-    setActiveSlice(i)
-    fadeUpMobileAudio(mobileVideoRefs.current[i])
-  }
-
-  const collapseSlice = () => {
-    killMobileAudio()
-    setActiveSlice(null)
-  }
-
   useEffect(() => {
     killAllAudio()
     if (hovered === null) return
@@ -168,7 +110,7 @@ export default function Hero() {
 
   /* The glide to another layer moves the hero out from under the
      cursor without a mouseleave — kill audio the moment the layer
-     leaves the viewport (desktop hover AND mobile tap alike). */
+     leaves the viewport. */
   useEffect(() => {
     const section = sectionRef.current
     if (!section) return
@@ -177,8 +119,6 @@ export default function Hero() {
         if (!entry.isIntersecting) {
           setHovered(null)
           killAllAudio()
-          setActiveSlice(null)
-          killMobileAudio()
         }
       },
       { threshold: 0.3 }
@@ -190,15 +130,9 @@ export default function Hero() {
   /* Never leave a video element playing (unmuted or not) after the
      component unmounts. */
   useEffect(() => {
-    const desktopRefs = videoRefs.current
-    const mobileRefs = mobileVideoRefs.current
+    const refs = videoRefs.current
     return () => {
-      desktopRefs.forEach((video) => {
-        if (!video) return
-        video.muted = true
-        video.pause()
-      })
-      mobileRefs.forEach((video) => {
+      refs.forEach((video) => {
         if (!video) return
         video.muted = true
         video.pause()
@@ -242,7 +176,7 @@ export default function Hero() {
     <section
       id="page-1"
       ref={sectionRef}
-      className="section relative h-screen min-h-[640px] overflow-hidden bg-black"
+      className="section relative h-screen min-h-[100dvh] max-h-[100dvh] overflow-hidden bg-black lg:min-h-[640px] lg:max-h-none"
     >
       {/* ---- Portrait, aspect-locked (desktop grid registration frame) ---- */}
       <div className="absolute inset-0 hidden items-center justify-center lg:flex">
@@ -299,75 +233,9 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* ---- MOBILE & TABLET: full-bleed portrait with 9 narrow living
-            ripple tracks registered to the image's measured ripple lines.
-            Only those 9 lines are mapped — the wide static ripples to
-            their left are left completely untouched. ---- */}
-      <div ref={mobileWrapRef} className="absolute inset-0 lg:hidden">
-        <img
-          ref={mobileImgRef}
-          src="/hero-ripple.png"
-          alt=""
-          draggable="false"
-          className="absolute inset-0 h-full w-full select-none object-cover"
-          style={{ objectPosition: `${MOBILE_POS_X * 100}% 50%` }}
-        />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/35" />
-
-        <div className="absolute inset-0 z-[5]">
-          {mobileGeometry.map((track, i) => {
-            const media = SLICE_MEDIA[i]
-            const active = activeSlice === i
-            return (
-              <button
-                key={i}
-                aria-label={`Expand treatment media ${i + 1}`}
-                onClick={() => (active ? collapseSlice() : activateSlice(i))}
-                className="absolute top-0 h-full cursor-pointer overflow-hidden"
-                style={{
-                  /* Collapsed: exactly the narrow ripple line.
-                     Tapped: stretches fluidly to the full viewport width. */
-                  left: `${active ? 0 : track.left}%`,
-                  width: `${active ? 100 : track.width}%`,
-                  zIndex: active ? 40 : 5,
-                  transition: `left 0.7s ${STRETCH_EASE}, width 0.7s ${STRETCH_EASE}`,
-                }}
-              >
-                {media.type === 'video' ? (
-                  <video
-                    ref={(el) => (mobileVideoRefs.current[i] = el)}
-                    src={media.src}
-                    muted
-                    loop
-                    autoPlay
-                    playsInline
-                    preload="metadata"
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={media.src}
-                    alt=""
-                    loading="lazy"
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Clean translucent dismiss box for the stretched layer */}
-        {activeSlice !== null && (
-          <button
-            aria-label="Close media view"
-            onClick={collapseSlice}
-            className="absolute top-4 right-4 z-[45] border border-zinc-500/40 bg-black/60 px-3.5 py-2.5 text-xs tracking-widest text-zinc-300 backdrop-blur transition-colors duration-300 hover:text-ivory"
-          >
-            ✕
-          </button>
-        )}
-      </div>
+      {/* ---- MOBILE & TABLET: transparent measured ripple tracks +
+            rolling inactivity slide engine ---- */}
+      <MobileRippleHero media={SLICE_MEDIA} />
 
       {/* ---- Left-aligned hero typography (floats safely over the
             interaction masks) ---- */}

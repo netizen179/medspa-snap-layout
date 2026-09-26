@@ -10,7 +10,7 @@ export default function Footer() {
   return (
     <section
       id="page-5"
-      className="section relative flex min-h-screen flex-col bg-black px-6 pt-[14vh] pb-8"
+      className="section relative flex min-h-[100dvh] flex-col bg-black px-6 pt-[14vh] pb-8"
     >
       {/* ---- Central brand identity anchor ---- */}
       <Reveal className="flex flex-col items-center text-center">

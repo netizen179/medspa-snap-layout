@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 /* Fluid fade-on-scroll wrapper: content fades/slides in as its
    layer enters the viewport (used between Page 2 → Page 5). */
-export default function Reveal({ children, className = '', delay = 0 }) {
+export default function Reveal({ children, className = '', delay = 0, id }) {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -23,6 +23,7 @@ export default function Reveal({ children, className = '', delay = 0 }) {
   return (
     <div
       ref={ref}
+      id={id}
       className={`reveal ${className}`}
       style={{ transitionDelay: `${delay}ms` }}
     >

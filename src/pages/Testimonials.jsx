@@ -74,7 +74,7 @@ export default function Testimonials() {
   }
 
   return (
-    <section id="page-3" className="section relative min-h-screen bg-black">
+    <section id="page-3" className="section relative min-h-[100dvh] bg-black">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-6 py-24 md:px-10 lg:min-h-screen lg:grid-cols-2 lg:gap-8 lg:py-0">
         {/* ---- LEFT COLUMN: validation & trust ---- */}
         <Reveal className="snap-start md:[scroll-snap-align:none]" delay={100}>

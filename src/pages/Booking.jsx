@@ -48,7 +48,7 @@ export default function Booking() {
   return (
     <section
       id="page-4"
-      className="section relative flex min-h-screen items-center justify-center bg-black px-4 py-24 md:px-6 lg:py-0"
+      className="section relative flex min-h-[100dvh] items-center justify-center bg-black px-4 py-24 md:px-6 lg:py-0"
     >
       <Reveal className="w-full">
         <div className="mx-auto flex h-[68vh] w-full max-w-4xl flex-col rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-4 shadow-2xl backdrop-blur-xl md:h-[75vh]">

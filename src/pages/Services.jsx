@@ -6,8 +6,8 @@ import { SQUARE_BOOKING_URL, TREATMENTS } from '../config/links'
    PAGE 2 — THE INTERACTIVE SERVICE HIGHLIGHTS LAYER
    Desktop (lg+): strict 50/50 split — philosophy LEFT, card deck RIGHT.
    Mobile & tablet (< lg): TWO independent full-screen 100dvh snap layers —
-     2A hosts the About text, 2B hosts the card deck on its own plane, so
-     the vertical page-length overflow on phones is gone entirely.
+     2A hosts the About text, 2B hosts the card deck on its own plane,
+     centred in the dead centre of the viewport with no padding caps.
    The 5 cascading cards rest as an angled, tilted tray (task-view
    aesthetic) and explode into a spacious 3+2 grid on container hover —
    scaled per breakpoint (.deck-zone vars) and re-centered on the
@@ -78,13 +78,17 @@ const MOBILE_LEAVING_TRANSFORM =
   'translate3d(150px, 52px, 0) rotateY(-55deg) scale(0.8)'
 
 const TRANSITION_MS = 700
+const BANNER_MS = 1500
 const EASE = 'ease-[cubic-bezier(0.65,0,0.35,1)]'
 
-/* Full-screen envelope shared by both mobile/tablet snap layers — dynamic
-   viewport units auto-fit any hardware box (Samsung S20, iPhone 14, iPad)
-   with no boundary clips or overlapping wrappers. */
-const MOBILE_LAYER =
-  'snap-start flex h-screen min-h-[100dvh] max-h-[100dvh] flex-col justify-center overflow-hidden px-6 lg:block lg:h-auto lg:min-h-0 lg:max-h-none lg:overflow-visible lg:px-0 lg:[scroll-snap-align:none]'
+/* Shared full-screen envelope — dynamic viewport units auto-fit any
+   hardware box (Samsung S20, iPhone 14 Pro Max, iPad) with no boundary
+   clips or overlapping wrappers. 2B drops the outer padding so the
+   angled deck loops freely inside the screen frame. */
+const LAYER_BASE =
+  'snap-start flex h-screen min-h-[100dvh] max-h-[100dvh] flex-col justify-center overflow-hidden lg:block lg:h-auto lg:min-h-0 lg:max-h-none lg:overflow-visible lg:[scroll-snap-align:none]'
+const MOBILE_LAYER_A = `${LAYER_BASE} px-6 lg:px-0`
+const MOBILE_LAYER_B = `${LAYER_BASE} relative`
 
 const canHover = () =>
   typeof window !== 'undefined' &&
@@ -98,6 +102,7 @@ export default function Services() {
   const [leaving, setLeaving] = useState(null)
   const [exploded, setExploded] = useState(false)
   const [isCompact, setIsCompact] = useState(isCompactViewport)
+  const [showBanner, setShowBanner] = useState(false)
   const [zoneShift, setZoneShift] = useState(0)
   const zoneRef = useRef(null)
   const shiftRef = useRef(0)
@@ -110,6 +115,28 @@ export default function Services() {
     update()
     mq.addEventListener('change', update)
     return () => mq.removeEventListener('change', update)
+  }, [])
+
+  /* Landing on the 2B cards viewport flashes the "CHOOSE YOUR SERVICE"
+     typography banner, then it fades straight back out. */
+  useEffect(() => {
+    const el = document.getElementById('page-2b')
+    if (!el) return
+    let timer = 0
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+        setShowBanner(true)
+        clearTimeout(timer)
+        timer = setTimeout(() => setShowBanner(false), BANNER_MS)
+      },
+      { threshold: 0.5 }
+    )
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      clearTimeout(timer)
+    }
   }, [])
 
   /* Re-center the exploded matrix on the viewport so it always fits
@@ -147,11 +174,17 @@ export default function Services() {
     }, TRANSITION_MS)
   }
 
+  /* Direct Square handoff — selecting a card leaves the site wrapper and
+     opens that service's Square checkout in a fresh browser tab. */
+  const openSquare = (link) => {
+    window.open(link || SQUARE_BOOKING_URL, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <section id="page-2" className="section relative bg-black">
       <div className="mx-auto flex max-w-7xl flex-col lg:grid lg:min-h-screen lg:grid-cols-2 lg:items-center lg:gap-8 lg:px-10 lg:py-0">
         {/* ---- 2A / LEFT half: identity & philosophy ---- */}
-        <Reveal className={MOBILE_LAYER} delay={100}>
+        <Reveal className={MOBILE_LAYER_A} delay={100}>
           <div className="mx-auto max-w-md lg:pl-[2vw] lg:pr-10">
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
               The Clinic
@@ -180,18 +213,28 @@ export default function Services() {
         </Reveal>
 
         {/* ---- 2B / RIGHT half: the angled 5-card deck + exploding grid ---- */}
-        <Reveal className={MOBILE_LAYER} delay={250}>
-          <div className="flex flex-col items-center">
+        <Reveal id="page-2b" className={MOBILE_LAYER_B} delay={250}>
+          {/* Landing flash banner */}
+          <div
+            className={`pointer-events-none absolute inset-0 z-30 flex items-center justify-center transition-opacity duration-500 ${
+              showBanner && isCompact ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <span className="text-gradient-fade border border-champagne/30 bg-black/70 px-6 py-4 font-serif text-[clamp(20px,5.5vw,40px)] uppercase tracking-[0.15em] backdrop-blur">
+              Choose Your Service
+            </span>
+          </div>
+
+          <div className="flex w-full flex-col items-center">
             {/* Hover zone covers the full exploded matrix so cards
                 never leave the interactive area while expanded */}
             <div
               ref={zoneRef}
-              className={`deck-zone relative h-[min(560px,80dvh)] w-[740px] max-w-full transition-transform duration-700 lg:h-[560px] ${EASE}`}
+              className={`deck-zone relative h-[min(560px,80dvh)] w-full transition-transform duration-700 lg:h-[560px] lg:w-[740px] lg:max-w-full ${EASE}`}
               style={{ transform: `translateX(${zoneShift}px)` }}
               onMouseEnter={() => canHover() && setExploded(true)}
               onMouseLeave={() => setExploded(false)}
-              /* Mobile & tablet viewports: a physical tap on the deck
-                 rotates the whole cascade — every card steps forward */
+              /* Taps on empty deck space still rotate the cascade */
               onClick={() => {
                 if (isCompactViewport()) shuffle()
               }}
@@ -214,14 +257,10 @@ export default function Services() {
                       style={isCompact ? { perspective: '900px' } : undefined}
                     >
                       <article
-                        onClick={
-                          isFront && !exploded && !isLeaving
-                            ? (e) => {
-                                e.stopPropagation()
-                                shuffle()
-                              }
-                            : undefined
-                        }
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openSquare(t.link)
+                        }}
                         style={
                           isCompact
                             ? {
@@ -231,17 +270,13 @@ export default function Services() {
                               }
                             : undefined
                         }
-                        className={`h-[min(430px,64dvh)] w-[min(330px,84vw)] border border-champagne/40 bg-black p-6 shadow-[0_25px_60px_rgba(0,0,0,0.85)] transition-all duration-700 lg:h-[430px] lg:w-[330px] ${EASE} ${
+                        className={`h-[min(430px,64dvh)] w-[min(330px,84vw)] cursor-pointer border border-champagne/40 bg-black p-6 shadow-[0_25px_60px_rgba(0,0,0,0.85)] transition-all duration-700 lg:h-[430px] lg:w-[330px] ${EASE} ${
                           isCompact
                             ? isLeaving
                               ? MOBILE_LEAVING
                               : MOBILE_STACKED[pos]
                             : desktopMode
-                        } ${
-                          isFront && !exploded && !isLeaving
-                            ? 'cursor-pointer'
-                            : 'pointer-events-auto'
-                        }`}
+                        } ${isFront ? '' : 'pointer-events-auto'}`}
                       >
                         <div className="flex h-full flex-col">
                           <span className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">
