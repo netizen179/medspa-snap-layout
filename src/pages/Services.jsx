@@ -245,6 +245,11 @@ export default function Services() {
             >
               {cards.map((t, pos) => {
                 const isFront = pos === 0
+                /* Zero-overlap rule: only the front card's typography is
+                   visible while stacked; the 4 behind fade to 0% so no text
+                   ever collides behind the rotating lead card. The exploded
+                   desktop grid shows every card's copy. */
+                const textVisible = isFront || exploded
                 const isLeaving = leaving === t.id
                 const desktopMode = exploded
                   ? EXPLODED[pos]
@@ -288,15 +293,21 @@ export default function Services() {
                         }`}
                       >
                         <div className="flex h-full flex-col">
-                          <span className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">
-                            {String(pos + 1).padStart(2, '0')} / 05
-                          </span>
-                          <h3 className="mt-3 font-serif text-lg font-normal shift-contrast">
-                            {t.title}
-                          </h3>
-                          <p className="mt-4 text-xs leading-relaxed text-zinc-300">
-                            {t.description}
-                          </p>
+                          <div
+                            className={`transition-opacity duration-500 ${
+                              textVisible ? 'opacity-100' : 'opacity-0'
+                            }`}
+                          >
+                            <span className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">
+                              {String(pos + 1).padStart(2, '0')} / 05
+                            </span>
+                            <h3 className="mt-3 font-serif text-lg font-normal shift-contrast">
+                              {t.title}
+                            </h3>
+                            <p className="mt-4 text-xs leading-relaxed text-zinc-300">
+                              {t.description}
+                            </p>
+                          </div>
                           <div className="mt-auto pt-5">
                             <a
                               href={t.link || SQUARE_BOOKING_URL}

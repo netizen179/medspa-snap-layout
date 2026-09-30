@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Reveal from '../components/Reveal'
 import { TALLY_WEBHOOK_URL } from '../config/integrations'
+import { PHONE_DISPLAY, PHONE_TEL } from '../config/links'
 
 /* ==========================================================================
    PAGE 3 — THE SOCIAL PROOF & CLIENT INTAKE LAYER
@@ -188,6 +189,13 @@ export default function Testimonials() {
                   >
                     Contact Now
                   </button>
+                  {/* Click-to-call handshake — native tel: protocol */}
+                  <a
+                    href={`tel:${PHONE_TEL}`}
+                    className="text-center text-xs tracking-[0.15em] text-zinc-500 transition-colors duration-300 hover:text-ivory"
+                  >
+                    Prefer to call? {PHONE_DISPLAY}
+                  </a>
                 </form>
               )}
             </div>

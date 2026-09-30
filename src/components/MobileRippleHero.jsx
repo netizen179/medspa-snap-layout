@@ -2,27 +2,29 @@ import { useEffect, useRef, useState } from 'react'
 import { useRippleGeometry } from '../hooks/useRippleGeometry'
 
 /* ==========================================================================
-   PAGE 1 — MOBILE / TABLET MEDIA WAVE ENGINE (< lg)
+   PAGE 1 — MOBILE / TABLET RIPPLE ENGINE (< lg)
    ==========================================================================
    The 9 code columns are completely transparent, colourless and borderless
    by default — only the monochrome portrait canvas shows. Each column is a
    track registered to the portrait's measured ripple lines (see
-   useRippleGeometry) and holds a looping media reel.
+   useRippleGeometry).
 
-   ONE-TIME INTRO MEDIA WAVE
-   Immediately after the site finishes loading, all 9 image/video ripple
-   slices execute a single unified cascading "Media Wave": each track
-   stretches to the right, stacking over the previous one in sequence until
-   the final slice is revealed. The expanded wave holds on absolute mute for
-   exactly 3 seconds, then every track pulls back individually, one by one,
-   into its original narrow masked groove. The wave runs once per page load
-   and never again until the page is fully refreshed.
+   ONE-TIME INTRO (runs once per page load, never again until a refresh)
+   1. The FIRST ripple slice on the far left extends smoothly to the right
+      for 4 seconds, then slides back into its stationary slot.
+   2. The moment it snaps back, a quick water-ripple lighting flash cascades
+      across all 9 ripples sequentially from left to right.
 
-   MANUAL TOUCH OVERRIDES (armed once the intro wave has pulled back)
-   - Tapping a slice stretches it open to the right and unmutes its audio.
-   - Video slices stay expanded and audible until the clip ends or ✕.
-   - Image slices lock expanded for exactly 3s, then auto-collapse.
-   - ✕ or a tap on the background canvas collapses instantly.
+   MANUAL TAP PIPELINE (armed once the intro has finished)
+   - Column 1: width extension only — it stretches right and shows its asset
+     natively, bypassing the fade-zoom overlay entirely.
+   - Columns 2–9: two steps. STEP 1 stretches the track to the right edge of
+     its available space (silent). STEP 2 — the exact moment the stretch
+     finishes — fade-zooms the asset out into a full-screen box and flips the
+     video audio to full volume instantly.
+   - Reversal: the ✕ control or a tap on the media canvas fades-zooms the
+     media back down, collapses the track into its original narrow groove and
+     kills the audio completely.
    - Scrolling off Page 1 hard-kills every media audio stream instantly.
    ========================================================================== */
 
@@ -30,11 +32,11 @@ import { useRippleGeometry } from '../hooks/useRippleGeometry'
 const MOBILE_POS_X = 0.5096
 
 const SLICE_COUNT = 9
-const INTRO_STEP_MS = 190
-const INTRO_HOLD_MS = 3000
-const INTRO_SETTLE_MS = 420
-const IMAGE_HOLD_MS = 3000
-const AUDIO_FADE_MS = 700
+const INTRO_FIRST_MS = 4000
+const FLASH_STEP_MS = 110
+const FLASH_SETTLE_MS = 260
+const STRETCH_MS = 700
+const ZOOM_OUT_MS = 500
 const STRETCH_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)'
 
 export default function MobileRippleHero({ media }) {
@@ -42,17 +44,17 @@ export default function MobileRippleHero({ media }) {
   const imgRef = useRef(null)
   const videoRefs = useRef([])
   const rampRef = useRef(0)
-  const imageTimerRef = useRef(0)
+  const stretchTimerRef = useRef(0)
+  const closeTimerRef = useRef(0)
 
-  /* idle → wave → hold → retract → ready */
+  /* idle → first → retract → flash → ready */
   const [phase, setPhase] = useState('idle')
-  const [waveCount, setWaveCount] = useState(0)
+  const [flashIndex, setFlashIndex] = useState(-1)
   const [manualIndex, setManualIndex] = useState(null)
+  const [zoomed, setZoomed] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const geometry = useRippleGeometry(imgRef, wrapRef, MOBILE_POS_X)
-
-  const introRunning =
-    phase === 'wave' || phase === 'hold' || phase === 'retract'
 
   /* Hard kill — mute, zero the volume, pause, restore looping */
   const killAudio = () => {
@@ -66,56 +68,22 @@ export default function MobileRippleHero({ media }) {
     })
   }
 
-  /* Every slice plays silent while the intro wave is on screen */
-  const playAllMuted = () => {
-    videoRefs.current.forEach((video) => {
-      if (!video) return
-      video.muted = true
-      video.volume = 0
-      video.loop = true
-      video.play().catch(() => {})
-    })
-  }
-
-  /* Smoothly fade a slice's audio stream up to full volume */
-  const fadeUp = (video) => {
+  /* Step 2 volume mapping — flip straight to full volume, no fade */
+  const unmuteFull = (video) => {
     if (!video) return
     cancelAnimationFrame(rampRef.current)
     video.muted = false
-    video.volume = 0
+    video.volume = 1
     video.play().catch(() => {
-      /* Autoplay with sound may be blocked — keep the visual unfold */
+      /* Autoplay with sound may be blocked — keep the visual breakout */
       video.muted = true
       video.play().catch(() => {})
     })
-    /* rAF timestamps can precede performance.now(), so anchor the ramp to
-       the first frame and clamp the volume into the legal 0…1 range. */
-    let start = null
-    const ramp = (now) => {
-      if (video.muted) return
-      if (start === null) start = now
-      const progress = Math.min(Math.max((now - start) / AUDIO_FADE_MS, 0), 1)
-      video.volume = progress
-      if (progress < 1) rampRef.current = requestAnimationFrame(ramp)
-    }
-    rampRef.current = requestAnimationFrame(ramp)
   }
 
-  const startSlice = (index, loop) => {
-    const video = videoRefs.current[index]
-    if (!video) return
-    video.loop = loop
-    try {
-      video.currentTime = 0
-    } catch {
-      /* metadata not ready yet — play from wherever it is */
-    }
-    fadeUp(video)
-  }
-
-  /* ---- ONE-TIME INTRO MEDIA WAVE ----
-     Starts the moment the measured ripple geometry is ready, runs once per
-     page load, and never triggers again until a full refresh. */
+  /* ---- ONE-TIME INTRO: first-slice slide + water-ripple flash ----
+     Starts the moment the measured ripple geometry is ready and runs once
+     per page load. */
   useEffect(() => {
     if (geometry.length !== SLICE_COUNT) return
 
@@ -123,41 +91,30 @@ export default function MobileRippleHero({ media }) {
     const timers = []
     const later = (fn, ms) => timers.push(setTimeout(fn, ms))
 
-    setPhase('wave')
-    setWaveCount(0)
-    playAllMuted()
-
-    /* Cascade: each track stretches to the right, stacking over the last */
-    for (let i = 1; i <= SLICE_COUNT; i++) {
-      later(() => {
-        if (!cancelled) setWaveCount(i)
-      }, i * INTRO_STEP_MS)
-    }
-
-    /* Hold the fully expanded wave on absolute mute for 3 seconds */
-    const waveEnd = SLICE_COUNT * INTRO_STEP_MS
-    later(() => {
-      if (!cancelled) setPhase('hold')
-    }, waveEnd)
-
-    /* Retract: every track pulls back individually, one by one */
-    const retractStart = waveEnd + INTRO_HOLD_MS
+    /* Step 1 — the first slice alone slides out for 4 seconds */
+    setPhase('first')
     later(() => {
       if (!cancelled) setPhase('retract')
-    }, retractStart)
-    for (let i = 1; i <= SLICE_COUNT; i++) {
-      later(() => {
-        if (!cancelled) setWaveCount(SLICE_COUNT - i)
-      }, retractStart + i * INTRO_STEP_MS)
-    }
+    }, INTRO_FIRST_MS)
 
-    /* Intro complete — silence everything and arm the tap overrides */
+    /* Step 2 — the instant it snaps back, the ripple flash cascades L→R */
+    const flashStart = INTRO_FIRST_MS + STRETCH_MS
+    later(() => {
+      if (!cancelled) setPhase('flash')
+    }, flashStart)
+    for (let i = 0; i < SLICE_COUNT; i++) {
+      later(() => {
+        if (!cancelled) setFlashIndex(i)
+      }, flashStart + i * FLASH_STEP_MS)
+    }
+    later(() => {
+      if (!cancelled) setFlashIndex(-1)
+    }, flashStart + SLICE_COUNT * FLASH_STEP_MS)
     later(() => {
       if (cancelled) return
-      setWaveCount(0)
       setPhase('ready')
-      killAudio()
-    }, retractStart + SLICE_COUNT * INTRO_STEP_MS + INTRO_SETTLE_MS)
+      setFlashIndex(-1)
+    }, flashStart + SLICE_COUNT * FLASH_STEP_MS + FLASH_SETTLE_MS)
 
     return () => {
       cancelled = true
@@ -175,6 +132,7 @@ export default function MobileRippleHero({ media }) {
         if (!entry.isIntersecting) {
           killAudio()
           setManualIndex(null)
+          setZoomed(false)
         }
       },
       { threshold: 0.3 }
@@ -187,7 +145,8 @@ export default function MobileRippleHero({ media }) {
     const refs = videoRefs.current
     return () => {
       cancelAnimationFrame(rampRef.current)
-      clearTimeout(imageTimerRef.current)
+      clearTimeout(stretchTimerRef.current)
+      clearTimeout(closeTimerRef.current)
       refs.forEach((video) => {
         if (!video) return
         video.muted = true
@@ -197,25 +156,58 @@ export default function MobileRippleHero({ media }) {
     }
   }, [])
 
+  /* Reversal closure — fade-zoom down, collapse, kill audio immediately */
   const collapse = () => {
     killAudio()
-    clearTimeout(imageTimerRef.current)
+    clearTimeout(stretchTimerRef.current)
+    if (zoomed) {
+      setClosing(true)
+      setZoomed(false)
+      closeTimerRef.current = setTimeout(() => {
+        setClosing(false)
+        setManualIndex(null)
+      }, ZOOM_OUT_MS)
+      return
+    }
     setManualIndex(null)
   }
 
-  /* Manual tap (armed only after the intro wave has pulled back):
-     stretch this slice open and fade its audio up. */
+  /* Manual tap pipeline (armed only once the intro has finished) */
   const handleTap = (index) => {
     if (phase !== 'ready') return
-    if (manualIndex === index) return
-    killAudio()
-    clearTimeout(imageTimerRef.current)
-    setManualIndex(index)
-    if (media[index].type === 'video') {
-      startSlice(index, false)
-    } else {
-      imageTimerRef.current = setTimeout(collapse, IMAGE_HOLD_MS)
+    /* A tap on the open media canvas reverses the pipeline */
+    if (manualIndex === index) {
+      collapse()
+      return
     }
+    killAudio()
+    clearTimeout(stretchTimerRef.current)
+    clearTimeout(closeTimerRef.current)
+    setClosing(false)
+    setZoomed(false)
+    setManualIndex(index)
+
+    const video = videoRefs.current[index]
+    if (video) {
+      video.loop = true
+      try {
+        video.currentTime = 0
+      } catch {
+        /* metadata not ready yet — play from wherever it is */
+      }
+      video.muted = true
+      video.volume = 0
+      video.play().catch(() => {})
+    }
+
+    /* Column 1 — width extension only, no fade-zoom overlay */
+    if (index === 0) return
+
+    /* Columns 2–9 — STEP 2 fires the instant STEP 1 finishes */
+    stretchTimerRef.current = setTimeout(() => {
+      setZoomed(true)
+      unmuteFull(video)
+    }, STRETCH_MS)
   }
 
   return (
@@ -240,12 +232,14 @@ export default function MobileRippleHero({ media }) {
       <div className="absolute inset-0 z-[5]">
         {geometry.map((track, i) => {
           const item = media[i]
-          const introExpanded = introRunning && i < waveCount
-          const manualExpanded = manualIndex === i
-          const expanded = introExpanded || manualExpanded
+          const introFirst = phase === 'first' && i === 0
+          const isActive = manualIndex === i
+          const isZoomed = isActive && zoomed
+          const expanded = introFirst || isActive
+          const flashing = flashIndex === i
           const mediaCls = `absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
             expanded ? 'opacity-100' : 'opacity-0'
-          }`
+          } ${isZoomed ? 'fade-zoom-in' : closing && isActive ? 'fade-zoom-out' : ''}`
           return (
             <button
               key={i}
@@ -253,11 +247,12 @@ export default function MobileRippleHero({ media }) {
               onClick={() => handleTap(i)}
               className="absolute top-0 h-full cursor-pointer overflow-hidden"
               style={{
-                /* Left edge stays pinned; the slice unrolls to the right */
-                left: `${track.left}%`,
-                width: `${expanded ? 100 - track.left : track.width}%`,
-                zIndex: manualExpanded ? 40 : introExpanded ? 10 + i : 5,
-                transition: `width 0.7s ${STRETCH_EASE}`,
+                /* Left edge stays pinned while the track stretches right;
+                   the zoom step breaks the asset out to the full screen. */
+                left: `${isZoomed ? 0 : track.left}%`,
+                width: `${isZoomed ? 100 : expanded ? 100 - track.left : track.width}%`,
+                zIndex: isZoomed ? 40 : isActive ? 30 : introFirst ? 20 : 5,
+                transition: `left ${STRETCH_MS}ms ${STRETCH_EASE}, width ${STRETCH_MS}ms ${STRETCH_EASE}`,
               }}
             >
               {item.type === 'video' ? (
@@ -268,14 +263,20 @@ export default function MobileRippleHero({ media }) {
                   loop
                   playsInline
                   preload="metadata"
-                  onEnded={() => {
-                    if (manualIndex === i) collapse()
-                  }}
                   className={mediaCls}
                 />
               ) : (
                 <img src={item.src} alt="" loading="lazy" className={mediaCls} />
               )}
+              {/* Water-ripple lighting flash travelling L→R */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-white"
+                style={{
+                  opacity: flashing ? 0.4 : 0,
+                  transition: `opacity ${FLASH_STEP_MS}ms linear`,
+                }}
+              />
             </button>
           )
         })}

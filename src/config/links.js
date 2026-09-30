@@ -2,13 +2,18 @@
  * Square booking pipeline — Bare Esthetics.
  *
  * The verified, live Square checkout URL below is the single source of
- * truth for the entire booking journey: every "BOOK THIS TREATMENT"
- * link on the Page 2 treatment cards and the Page 4 scheduling portal
- * iframe both read from SQUARE_BOOKING_URL.
+ * truth for the entire booking journey: every "BOOK NOW" link on the
+ * Page 2 treatment cards reads from SQUARE_BOOKING_URL.
  */
 
 export const SQUARE_BOOKING_URL =
   'https://book.squareup.com/appointments/35e74c3f-533c-4f15-8aca-4e1cc2ef8afd/location/0NB0EXKZ3FFNB/services?rwg_token=AE37R_jIzl6F9YeizmLHkyYvvo06Rtt-zLs_Odro9lIl5yUdOdrysVXicXy9QrXvilMc0XdahsXiQploaOEwcSDSEcRaEvOTzQQosTgO-syVQ3MzsWby99I%3D'
+
+/* Business line — single source of truth for every click-to-call hook
+   (Page 1 hero + Page 3 intake terminal). Rendered through the native
+   `tel:` protocol so a tap opens the device's phone application. */
+export const PHONE_DISPLAY = '(718) 674-4863'
+export const PHONE_TEL = '+17186744863'
 
 export const TREATMENTS = [
   {

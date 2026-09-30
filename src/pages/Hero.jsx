@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import MobileRippleHero from '../components/MobileRippleHero'
-import { SQUARE_BOOKING_URL } from '../config/links'
+import { PHONE_DISPLAY, PHONE_TEL, SQUARE_BOOKING_URL } from '../config/links'
 
 /* ==========================================================================
    PAGE 1 — THE HERO SCREEN LAYER
@@ -22,8 +22,9 @@ import { SQUARE_BOOKING_URL } from '../config/links'
    as a single composition and never drift apart.
 
    MOBILE & TABLET (< lg): rendered by <MobileRippleHero /> — transparent
-   tracks registered to the same measured ripple lines, plus the rolling
-   inactivity slide engine.
+   tracks registered to the same measured ripple lines, plus the one-time
+   intro slide + water-ripple flash and the two-step extend-then-zoom tap
+   pipeline.
    ========================================================================== */
 
 const HERO_ASPECT = 1726 / 911
@@ -79,6 +80,7 @@ function SliceMedia({ media, visible, videoRef }) {
 
 export default function Hero() {
   const [hovered, setHovered] = useState(null)
+  const [creditVisible, setCreditVisible] = useState(false)
   const videoRefs = useRef([])
   const contentRef = useRef(null)
   const sectionRef = useRef(null)
@@ -87,6 +89,18 @@ export default function Hero() {
   useEffect(() => {
     hoveredRef.current = hovered
   }, [hovered])
+
+  /* BRAND CREDIT — "Project by Kimani" eases into focus right after load,
+     holds fully visible for 3 seconds, then dissolves permanently (until a
+     page reload). */
+  useEffect(() => {
+    const on = setTimeout(() => setCreditVisible(true), 120)
+    const off = setTimeout(() => setCreditVisible(false), 120 + 1000 + 3000)
+    return () => {
+      clearTimeout(on)
+      clearTimeout(off)
+    }
+  }, [])
 
   /* AUDIO SYNC (desktop hover grid) — hard rule: only ONE sound can ever
      exist. The hovered track plays muted while its column expands; the
@@ -234,8 +248,8 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* ---- MOBILE & TABLET: transparent measured ripple tracks +
-            rolling inactivity slide engine ---- */}
+      {/* ---- MOBILE & TABLET: transparent measured ripple tracks + the
+            one-time intro slide and the extend-then-zoom tap pipeline ---- */}
       <MobileRippleHero media={SLICE_MEDIA} />
 
       {/* ---- Left-aligned hero typography (floats safely over the
@@ -295,8 +309,23 @@ export default function Hero() {
                 →
               </span>
             </a>
+            {/* Click-to-call handshake — native tel: protocol, both layouts */}
+            <a
+              href={`tel:${PHONE_TEL}`}
+              className="text-xs tracking-[0.15em] text-zinc-400 transition-colors duration-300 hover:text-ivory"
+            >
+              {PHONE_DISPLAY}
+            </a>
           </div>
 
+          {/* BRAND CREDIT — eases in after load, holds 3s, then dissolves */}
+          <p
+            className={`mt-6 text-xs tracking-[0.15em] text-zinc-600 transition-opacity duration-1000 ${
+              creditVisible ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            Project by Kimani
+          </p>
         </div>
       </div>
     </section>

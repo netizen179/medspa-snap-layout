@@ -98,6 +98,38 @@ body {
   }
 }
 
+/* ==========================================================================
+   TWO-STEP EXTEND-THEN-ZOOM MEDIA BREAKOUT (Page 1 mobile ripple)
+   Once a column's horizontal stretch finishes, its asset breaks out of the
+   track and fade-zooms into the full-screen box; closing runs it in reverse.
+   ========================================================================== */
+@keyframes fade-zoom-in {
+  from {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes fade-zoom-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+}
+.fade-zoom-in {
+  animation: fade-zoom-in 0.9s ease forwards;
+}
+.fade-zoom-out {
+  animation: fade-zoom-out 0.5s ease forwards;
+}
+
 /* Fluid fade-on-scroll reveal for section content */
 .reveal {
   opacity: 0;
