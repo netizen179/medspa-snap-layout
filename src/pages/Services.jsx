@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Reveal from '../components/Reveal'
+import Typewriter from '../components/Typewriter'
 import { SQUARE_BOOKING_URL, TREATMENTS } from '../config/links'
 
 /* ==========================================================================
@@ -13,12 +14,21 @@ import { SQUARE_BOOKING_URL, TREATMENTS } from '../config/links'
    scaled per breakpoint (.deck-zone vars) and re-centered on the
    viewport so the matrix always fits inside the screen boundaries.
 
-   UNIVERSAL SHUFFLE LOOP (desktop & mobile): tapping/clicking the card
-   area runs a true sequential cycle — the front card slides right, drops
-   its depth index and translates to the absolute back of the pile while
-   every remaining card steps one slot forward. The BOOK NOW button on the
-   front card is the only element that leaves the site: it opens that
-   service's Square checkout in a fresh browser tab.
+   DESKTOP SHUFFLE LOOP: tapping/clicking the card area runs a true
+   sequential cycle — the front card slides right, drops its depth index
+   and translates to the absolute back of the pile while every remaining
+   card steps one slot forward (1 → 2 → 3 → 4 → 5 → 1).
+
+   COMPACT ZOOM-LOOP (< lg): the first tap on the deck scales the front
+   card up to Max Zoom (scale 1.12 — strictly inside the layer, never
+   full-screen) while the 4 cards behind fan out in strict spatial rotation
+   order (rotateZ -6 / +6 / -3 / +3) and their typography drops to exactly
+   5%. Once stable, 3s of stillness tilts the zoomed card one way and the
+   next 3s tilts it back, rolling on a loop. A second tap scales it back
+   down, slides it to the absolute back of the pile and zooms the next card.
+
+   BOOKING: only the active front card's BOOK NOW button leaves the site —
+   it opens that service's Square checkout in a fresh browser tab.
    ========================================================================== */
 
 /* The deck shows the 5 services exactly as named in the live Square
@@ -86,8 +96,25 @@ const MOBILE_LEAVING = 'z-[60] opacity-0'
 const MOBILE_LEAVING_TRANSFORM =
   'translate3d(150px, 26px, 0) rotateY(-55deg) scale(0.8)'
 
+/* ZOOM-MAX FACTOR (compact only): the tapped front card scales up toward
+   the user (strictly inside the layer, never full-screen) while the 4 cards
+   behind fan out in strict spatial rotation order and their typography drops
+   to exactly 5% — deep background context. */
+const MOBILE_ZOOM_SCALE = 1.12
+const MOBILE_BACK_OPACITY = 0.05
+const MOBILE_FAN = [
+  'rotateZ(0deg)',
+  'rotateZ(-6deg)',
+  'rotateZ(6deg)',
+  'rotateZ(-3deg)',
+  'rotateZ(3deg)',
+]
+
 const TRANSITION_MS = 700
-const BANNER_MS = 1500
+/* Inactivity breathing cycle: 3s of stillness tilts the zoomed front card
+   one way, the next 3s tilts it back, rolling on a loop. */
+const INACTIVITY_MS = 3000
+const TILT_DEG = 7
 const EASE = 'ease-[cubic-bezier(0.65,0,0.35,1)]'
 
 /* Shared full-screen envelope — dynamic viewport units auto-fit any
@@ -111,7 +138,10 @@ export default function Services() {
   const [leaving, setLeaving] = useState(null)
   const [exploded, setExploded] = useState(false)
   const [isCompact, setIsCompact] = useState(isCompactViewport)
-  const [showBanner, setShowBanner] = useState(false)
+  const [mobileZoomed, setMobileZoomed] = useState(false)
+  const [tilt, setTilt] = useState(0)
+  const [interactionKey, setInteractionKey] = useState(0)
+  const [typing, setTyping] = useState(false)
   const [zoneShift, setZoneShift] = useState(0)
   const zoneRef = useRef(null)
   const shiftRef = useRef(0)
@@ -126,27 +156,38 @@ export default function Services() {
     return () => mq.removeEventListener('change', update)
   }, [])
 
-  /* Landing on the 2B cards viewport flashes the "CHOOSE YOUR SERVICE"
-     typography banner, then it fades straight back out. */
+  /* The 2B "TAP TO SHUFFLE SERVICES" directive prints itself
+     letter-by-letter every time the cards viewport snaps into view. */
   useEffect(() => {
+    if (!isCompact) return
     const el = document.getElementById('page-2b')
     if (!el) return
-    let timer = 0
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return
-        setShowBanner(true)
-        clearTimeout(timer)
-        timer = setTimeout(() => setShowBanner(false), BANNER_MS)
-      },
+      ([entry]) => setTyping(entry.isIntersecting),
       { threshold: 0.5 }
     )
     observer.observe(el)
-    return () => {
-      observer.disconnect()
-      clearTimeout(timer)
+    return () => observer.disconnect()
+  }, [isCompact])
+
+  /* Inactivity breathing cycle: while the front card rests at Max Zoom,
+     after 3s of stillness it tilts one way, then back the other way every
+     3s on a rolling loop. Any deck interaction restarts the cycle. */
+  useEffect(() => {
+    if (!isCompact || !mobileZoomed) {
+      setTilt(0)
+      return
     }
-  }, [])
+    let dir = 1
+    let timer
+    const tick = () => {
+      setTilt(TILT_DEG * dir)
+      dir = -dir
+      timer = setTimeout(tick, INACTIVITY_MS)
+    }
+    timer = setTimeout(tick, TRANSITION_MS + INACTIVITY_MS)
+    return () => clearTimeout(timer)
+  }, [isCompact, mobileZoomed, interactionKey])
 
   /* Re-center the exploded matrix on the viewport so it always fits
      inside the screen boundaries, regardless of the right-column
@@ -172,8 +213,10 @@ export default function Services() {
 
   /* TRUE SEQUENTIAL SHUFFLE LOOP — the whole array rotates together:
      the front card sweeps out, drops its layer index, and every card
-     steps one slot forward (1 → 2 → 3 → 4 → 5 → 1). */
-  const shuffle = () => {
+     steps one slot forward (1 → 2 → 3 → 4 → 5 → 1). `keepZoom` keeps the
+     compact Max-Zoom pipeline alive so the advancing card scales straight
+     back up to repeat it. */
+  const advance = (keepZoom) => {
     if (busyRef.current) return
     busyRef.current = true
     setLeaving(cards[0].id)
@@ -181,7 +224,30 @@ export default function Services() {
       setCards((current) => [...current.slice(1), current[0]])
       setLeaving(null)
       busyRef.current = false
+      setMobileZoomed(keepZoom)
     }, TRANSITION_MS)
+  }
+
+  /* Compact deck tap pipeline: the first tap scales the front card to Max
+     Zoom; a second tap scales it back down, shuffles it to the absolute
+     back of the pile and zooms the next card. Desktop keeps its plain
+     shuffle untouched. */
+  const handleDeckTap = () => {
+    setInteractionKey((k) => k + 1)
+    if (!isCompact) {
+      advance(false)
+      return
+    }
+    if (!mobileZoomed) {
+      setMobileZoomed(true)
+      return
+    }
+    advance(true)
+  }
+
+  const handleNext = () => {
+    setInteractionKey((k) => k + 1)
+    advance(isCompact)
   }
 
   return (
@@ -218,17 +284,6 @@ export default function Services() {
 
         {/* ---- 2B / RIGHT half: the angled 5-card deck + exploding grid ---- */}
         <Reveal id="page-2b" className={MOBILE_LAYER_B} delay={250}>
-          {/* Landing flash banner */}
-          <div
-            className={`pointer-events-none absolute inset-0 z-30 flex items-center justify-center transition-opacity duration-500 ${
-              showBanner && isCompact ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            <span className="text-gradient-fade border border-champagne/30 bg-black/70 px-6 py-4 font-serif text-[clamp(20px,5.5vw,40px)] uppercase tracking-[0.15em] backdrop-blur">
-              Choose Your Service
-            </span>
-          </div>
-
           {/* Dead-centre flex grid: the deck sits in the exact horizontal
               and vertical middle of Page 2B on mobile & tablet. */}
           <div className="flex h-full w-full flex-col items-center justify-center">
@@ -240,22 +295,42 @@ export default function Services() {
               style={{ transform: `translateX(${zoneShift}px)` }}
               onMouseEnter={() => canHover() && setExploded(true)}
               onMouseLeave={() => setExploded(false)}
-              /* Tapping/clicking the card area cycles the pile */
-              onClick={shuffle}
+              /* Tapping/clicking the card area runs the compact zoom-loop
+                 (or the plain desktop shuffle). */
+              onClick={handleDeckTap}
             >
               {cards.map((t, pos) => {
                 const isFront = pos === 0
-                /* Zero-overlap rule: only the front card's typography is
-                   visible while stacked; the 4 behind fade to 0% so no text
-                   ever collides behind the rotating lead card. The exploded
-                   desktop grid shows every card's copy. */
-                const textVisible = isFront || exploded
+                /* Compact typography opacity: the front card reads at full
+                   contrast while the 4 cards behind drop to exactly 5% the
+                   instant it reaches Max Zoom (0% while the deck rests, so
+                   no text ever collides behind the lead card). Desktop keeps
+                   its original zero-overlap rule. */
+                const textOpacity = isCompact
+                  ? isFront
+                    ? 1
+                    : mobileZoomed
+                      ? MOBILE_BACK_OPACITY
+                      : 0
+                  : isFront || exploded
+                    ? 1
+                    : 0
                 const isLeaving = leaving === t.id
                 const desktopMode = exploded
                   ? EXPLODED[pos]
                   : isLeaving
                     ? LEAVING
                     : STACKED[pos]
+                /* Compact 3D transform: at rest the pile cascades; at Max
+                   Zoom the front card scales up and breathes on the tilt
+                   cycle while the 4 behind fan out in strict rotation order. */
+                const compactTransform = isLeaving
+                  ? MOBILE_LEAVING_TRANSFORM
+                  : !mobileZoomed
+                    ? MOBILE_STACKED_TRANSFORM[pos]
+                    : isFront
+                      ? `translate3d(0, 26px, 0) rotateY(${tilt}deg) scale(${MOBILE_ZOOM_SCALE})`
+                      : `${MOBILE_STACKED_TRANSFORM[pos]} ${MOBILE_FAN[pos]}`
                 return (
                   /* Zero-size anchor point at the zone center: the card
                      centers on it via translate, so the wrapper's layout
@@ -271,17 +346,9 @@ export default function Services() {
                       <article
                         onClick={(e) => {
                           e.stopPropagation()
-                          shuffle()
+                          handleDeckTap()
                         }}
-                        style={
-                          isCompact
-                            ? {
-                                transform: isLeaving
-                                  ? MOBILE_LEAVING_TRANSFORM
-                                  : MOBILE_STACKED_TRANSFORM[pos],
-                              }
-                            : undefined
-                        }
+                        style={isCompact ? { transform: compactTransform } : undefined}
                         className={`h-[min(430px,64dvh)] w-[min(330px,84vw)] cursor-pointer border bg-black p-6 shadow-[0_25px_60px_rgba(0,0,0,0.85)] transition-all duration-700 lg:h-[430px] lg:w-[330px] ${EASE} ${
                           isFront ? 'border-champagne/60' : 'border-champagne/25'
                         } ${
@@ -294,9 +361,8 @@ export default function Services() {
                       >
                         <div className="flex h-full flex-col">
                           <div
-                            className={`transition-opacity duration-500 ${
-                              textVisible ? 'opacity-100' : 'opacity-0'
-                            }`}
+                            className={`transition-opacity ${EASE} ${isCompact ? 'duration-700' : 'duration-500'}`}
+                            style={{ opacity: textOpacity }}
                           >
                             <span className="text-[9px] uppercase tracking-[0.3em] text-zinc-600">
                               {String(pos + 1).padStart(2, '0')} / 05
@@ -308,20 +374,32 @@ export default function Services() {
                               {t.description}
                             </p>
                           </div>
-                          <div className="mt-auto pt-5">
-                            <a
-                              href={t.link || SQUARE_BOOKING_URL}
-                              target="_blank"
-                              rel="noreferrer"
-                              /* Direct Square handoff: the BOOK NOW button
-                                 bypasses every internal page and opens the
-                                 checkout in a fresh browser tab. */
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-2 border border-champagne/50 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-ivory transition-colors duration-300 hover:bg-champagne hover:text-black"
-                            >
-                              Book Now
-                              <span>→</span>
-                            </a>
+                          <div
+                            className={`mt-auto pt-5 transition-opacity ${EASE} ${isCompact ? 'duration-700' : 'duration-500'}`}
+                            style={isCompact ? { opacity: textOpacity } : undefined}
+                          >
+                            {isCompact && !isFront ? (
+                              /* Compact: only the active front card routes to
+                                 Square — the cards behind carry an inert CTA. */
+                              <span className="inline-flex items-center gap-2 border border-champagne/50 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-ivory">
+                                Book Now
+                                <span>→</span>
+                              </span>
+                            ) : (
+                              <a
+                                href={t.link || SQUARE_BOOKING_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                /* Direct Square handoff: the BOOK NOW button
+                                   bypasses every internal page and opens the
+                                   checkout in a fresh browser tab. */
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-2 border border-champagne/50 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-ivory transition-colors duration-300 hover:bg-champagne hover:text-black"
+                              >
+                                Book Now
+                                <span>→</span>
+                              </a>
+                            )}
                           </div>
                         </div>
                       </article>
@@ -331,12 +409,18 @@ export default function Services() {
               })}
             </div>
 
+            {/* Typewriter directive — prints letter-by-letter at the bottom
+                of the card workspace, just above the Next control. */}
+            <p className="absolute bottom-16 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap font-sans text-xs uppercase tracking-[0.3em] text-zinc-400 lg:hidden">
+              <Typewriter text="TAP TO SHUFFLE SERVICES" active={typing} />
+            </p>
+
             {/* Shuffle trigger — pinned to the bottom on mobile so it never
                 pulls the deck off the vertical centre of Page 2B. */}
             <button
-              onClick={shuffle}
+              onClick={handleNext}
               disabled={exploded}
-              className="absolute bottom-10 left-1/2 inline-flex -translate-x-1/2 items-center gap-3 border-b border-champagne/40 pb-1 text-[11px] uppercase tracking-[0.25em] text-zinc-200 transition-colors duration-300 hover:border-ivory hover:text-ivory disabled:opacity-40 lg:static lg:bottom-auto lg:left-auto lg:mt-8 lg:translate-x-0"
+              className="absolute bottom-8 left-1/2 inline-flex -translate-x-1/2 items-center gap-3 border-b border-champagne/40 pb-1 text-[11px] uppercase tracking-[0.25em] text-zinc-200 transition-colors duration-300 hover:border-ivory hover:text-ivory disabled:opacity-40 lg:static lg:bottom-auto lg:left-auto lg:mt-8 lg:translate-x-0"
             >
               Next
               <span>→</span>

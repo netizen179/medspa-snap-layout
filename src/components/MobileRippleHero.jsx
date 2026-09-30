@@ -22,9 +22,11 @@ import { useRippleGeometry } from '../hooks/useRippleGeometry'
      its available space (silent). STEP 2 — the exact moment the stretch
      finishes — fade-zooms the asset out into a full-screen box and flips the
      video audio to full volume instantly.
-   - Reversal: the ✕ control or a tap on the media canvas fades-zooms the
-     media back down, collapses the track into its original narrow groove and
-     kills the audio completely.
+   - Reversal: a thumb tap anywhere on the expanded media surface (or the
+     canvas behind it) fades-zooms the media back down, collapses the track
+     into its original narrow groove and kills the audio completely. There is
+     no ✕ overlay control, so the exit gesture never clashes with the global
+     CONTACT navigation anchors.
    - Scrolling off Page 1 hard-kills every media audio stream instantly.
    ========================================================================== */
 
@@ -282,15 +284,6 @@ export default function MobileRippleHero({ media }) {
         })}
       </div>
 
-      {manualIndex !== null && (
-        <button
-          aria-label="Close media view"
-          onClick={collapse}
-          className="absolute top-4 right-4 z-[45] border border-zinc-500/40 bg-black/60 px-3.5 py-2.5 text-xs tracking-widest text-zinc-300 backdrop-blur transition-colors duration-300 hover:text-ivory"
-        >
-          ✕
-        </button>
-      )}
     </div>
   )
 }
