@@ -307,13 +307,19 @@ export default function Services() {
                    at rest, unchanged when the grid explodes). Compact: the
                    front card reads at 100% while the 4 cards behind drop to
                    exactly 5% the instant it reaches Max Zoom (0% at rest). */
+                /* Desktop: the stationary angled stack rests with every
+                   wording layer muted to 30% so the overlapping copy never
+                   clutters; hovering explodes the grid and the wording
+                   brightens to 85% (readable), easing back on leave. */
                 const textOpacity = isCompact
                   ? isFront
                     ? 1
                     : mobileZoomed
                       ? MOBILE_BACK_OPACITY
                       : 0
-                  : 1
+                  : exploded
+                    ? 0.85
+                    : 0.3
                 const isLeaving = leaving === t.id
                 const desktopMode = exploded
                   ? EXPLODED[pos]
@@ -375,7 +381,7 @@ export default function Services() {
                           </div>
                           <div
                             className={`mt-auto pt-5 transition-opacity ${EASE} ${isCompact ? 'duration-700' : 'duration-500'}`}
-                            style={isCompact ? { opacity: textOpacity } : undefined}
+                            style={{ opacity: textOpacity }}
                           >
                             {isCompact && !isFront ? (
                               /* Compact: only the active front card routes to

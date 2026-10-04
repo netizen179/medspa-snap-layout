@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSmoothSnap } from './hooks/useSmoothSnap'
 import TopNav from './components/TopNav'
-import BookNowButton from './components/BookNowButton'
 import Hero from './pages/Hero'
 import Services from './pages/Services'
 import Testimonials from './pages/Testimonials'
@@ -48,9 +47,6 @@ export default function App() {
         <Testimonials />
         <Footer />
       </main>
-      {/* Persistent floating action — the booking journey is now a direct
-          Square handoff from the cards, so it is always available. */}
-      <BookNowButton />
     </div>
   )
 }

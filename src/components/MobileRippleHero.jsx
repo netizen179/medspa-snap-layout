@@ -9,13 +9,18 @@ import { useRippleGeometry } from '../hooks/useRippleGeometry'
    track registered to the portrait's measured ripple lines (see
    useRippleGeometry).
 
-   ONE-TIME "OCEAN WAVE" INTRO (runs exactly once per live session)
-   Immediately after load, a single fluid wave sweeps the 9 columns from the
-   far RIGHT of the grid across to the far LEFT. Each track ripples in turn —
-   bulging slightly out toward the viewport glass on a 3D translateZ and
-   sinking back away — with a soft sheen riding the crest so the motion reads
-   over the transparent tracks. When the wave exits stage left the columns
-   lock flat into their narrow masking grooves and the tap pipeline arms.
+   ONE-TIME SEQUENTIAL INTRO (runs exactly once per live session)
+   Three steps, kicked off immediately after load:
+     STEP 1 — the fluid ocean wave sweeps the 9 columns from the far RIGHT
+       across to the far LEFT. Each track ripples in turn — bulging toward
+       the glass on a 3D translateZ — with a soft sheen riding the crest so
+       the motion reads over the transparent tracks.
+     STEP 2 — the instant the wave reaches the far left, Column 1 (the first
+       image slice) stretches horizontally to the right across the space,
+       holds for 3s, then slides back into its groove.
+     STEP 3 — the exact moment Column 1 settles, the wave runs one final
+       time LEFT → RIGHT to close the sequence, then every track locks flat
+       into its masking groove and the tap pipeline arms.
 
    MANUAL TAP PIPELINE (armed once the intro has finished)
    - Column 1: width extension only — it stretches right and shows its asset
@@ -46,6 +51,13 @@ const WAVE_SHEEN = 0.16
 const STRETCH_MS = 700
 const ZOOM_OUT_MS = 500
 const STRETCH_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)'
+/* The exact transition React puts on every track — the intro restores this
+   string so the DOM stays in sync with the JSX after the sequence. */
+const TRACK_TRANSITION = `left ${STRETCH_MS}ms ${STRETCH_EASE}, width ${STRETCH_MS}ms ${STRETCH_EASE}`
+/* Sequential intro — STEP 2 (Column 1 privilege) timings */
+const COL1_EXPAND_MS = 900
+const COL1_HOLD_MS = 3000
+const COL1_RETURN_MS = 900
 
 export default function MobileRippleHero({ media }) {
   const wrapRef = useRef(null)
@@ -92,28 +104,39 @@ export default function MobileRippleHero({ media }) {
     })
   }
 
-  /* ---- ONE-TIME "OCEAN WAVE" INTRO ----
-     A single fluid wave sweeps the 9 columns from the far RIGHT of the grid
-     across to the far LEFT: each track bulges out toward the viewport glass
-     on a 3D translateZ and sinks back away, with a soft sheen riding the
-     crest so the motion reads over the transparent tracks. When the wave
-     exits stage left the columns lock flat into their narrow masking grooves
-     and the tap pipeline arms. Runs once per page load. */
+  /* ---- ONE-TIME SEQUENTIAL INTRO ----
+     STEP 1: fluid wave sweeps the 9 columns right → left. STEP 2: the instant
+     the crest reaches the far left, Column 1 stretches right across the space,
+     holds 3s and slides back. STEP 3: the moment it settles, the wave runs one
+     final left → right sweep, then every track locks flat and the tap pipeline
+     arms. Runs once per page load. */
   useEffect(() => {
     if (geometry.length !== SLICE_COUNT) return
 
     let cancelled = false
+    const introTimers = []
 
-    const start = () => {
-      if (cancelled) return
-      setPhase('wave')
+    /* Park every track flat in its groove and kill the sheen */
+    const lockFlat = () => {
+      for (let i = 0; i < SLICE_COUNT; i++) {
+        const node = trackRefs.current[i]
+        if (node) node.style.transform = 'translateZ(0px)'
+        const sheen = sheenRefs.current[i]
+        if (sheen) sheen.style.opacity = 0
+      }
+    }
+
+    /* One fluid sweep of the crest: `rtl` runs right → left, `ltr` runs
+       left → right. Calls onDone the moment the crest leaves the stage. */
+    const runWave = (direction, onDone) => {
       const t0 = performance.now()
-
       const frame = (now) => {
         if (cancelled) return
         const t = Math.min((now - t0) / WAVE_DURATION_MS, 1)
-        /* The crest travels from the far right (index 8) to the far left (0) */
-        const crest = (1 - t) * (SLICE_COUNT - 1)
+        const crest =
+          direction === 'rtl'
+            ? (1 - t) * (SLICE_COUNT - 1)
+            : t * (SLICE_COUNT - 1)
         for (let i = 0; i < SLICE_COUNT; i++) {
           const d = i - crest
           const decay = Math.exp(-(d * d) / (2 * WAVE_SIGMA * WAVE_SIGMA))
@@ -125,23 +148,59 @@ export default function MobileRippleHero({ media }) {
           const sheen = sheenRefs.current[i]
           if (sheen) sheen.style.opacity = Math.abs(wave) * WAVE_SHEEN
         }
-
         if (t < 1) {
           waveRafRef.current = requestAnimationFrame(frame)
           return
         }
-
-        /* Lock the columns flat into their narrow stationary grooves */
-        for (let i = 0; i < SLICE_COUNT; i++) {
-          const node = trackRefs.current[i]
-          if (node) node.style.transform = 'translateZ(0px)'
-          const sheen = sheenRefs.current[i]
-          if (sheen) sheen.style.opacity = 0
-        }
-        setPhase('ready')
+        lockFlat()
+        onDone()
       }
-
       waveRafRef.current = requestAnimationFrame(frame)
+    }
+
+    const start = () => {
+      if (cancelled) return
+      setPhase('wave')
+
+      /* STEP 1 — right → left wave */
+      runWave('rtl', () => {
+        if (cancelled) return
+
+        /* STEP 2 — Column 1 privilege: stretch right, hold 3s, slide back */
+        const first = trackRefs.current[0]
+        const firstMedia = first && first.firstElementChild
+        if (first) {
+          first.style.transition = `width ${COL1_EXPAND_MS}ms ${STRETCH_EASE}`
+          first.style.width = `${100 - geometry[0].left}%`
+        }
+        if (firstMedia) firstMedia.style.opacity = 1
+
+        introTimers.push(
+          setTimeout(() => {
+            if (cancelled) return
+            /* Slide Column 1 back into its slot */
+            if (first) {
+              first.style.transition = `width ${COL1_RETURN_MS}ms ${STRETCH_EASE}`
+              first.style.width = `${geometry[0].width}%`
+            }
+            if (firstMedia) firstMedia.style.opacity = ''
+
+            introTimers.push(
+              setTimeout(() => {
+                if (cancelled) return
+                /* Hand the track back to React's own transition string */
+                if (first) first.style.transition = TRACK_TRANSITION
+
+                /* STEP 3 — left → right wave closure, then lock + arm */
+                runWave('ltr', () => {
+                  if (cancelled) return
+                  setPhase('ready')
+                })
+              }, COL1_RETURN_MS)
+            )
+          }, COL1_EXPAND_MS + COL1_HOLD_MS)
+        )
+      })
     }
 
     waveTimerRef.current = setTimeout(start, WAVE_DELAY_MS)
@@ -149,6 +208,7 @@ export default function MobileRippleHero({ media }) {
     return () => {
       cancelled = true
       clearTimeout(waveTimerRef.current)
+      introTimers.forEach(clearTimeout)
       cancelAnimationFrame(waveRafRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,7 +346,7 @@ export default function MobileRippleHero({ media }) {
                 left: `${isZoomed ? 0 : track.left}%`,
                 width: `${isZoomed ? 100 : expanded ? 100 - track.left : track.width}%`,
                 zIndex: isZoomed ? 40 : isActive ? 30 : 5,
-                transition: `left ${STRETCH_MS}ms ${STRETCH_EASE}, width ${STRETCH_MS}ms ${STRETCH_EASE}`,
+                transition: TRACK_TRANSITION,
               }}
             >
               {item.type === 'video' ? (
