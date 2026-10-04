@@ -22,10 +22,14 @@ import { SQUARE_BOOKING_URL, TREATMENTS } from '../config/links'
    COMPACT ZOOM-LOOP (< lg): the first tap on the deck scales the front
    card up to Max Zoom (scale 1.12 — strictly inside the layer, never
    full-screen) while the 4 cards behind fan out in strict spatial rotation
-   order (rotateZ -6 / +6 / -3 / +3) and their typography drops to exactly
-   5%. Once stable, 3s of stillness tilts the zoomed card one way and the
-   next 3s tilts it back, rolling on a loop. A second tap scales it back
-   down, slides it to the absolute back of the pile and zooms the next card.
+   order (rotateZ -6 / +6 / -3 / +3) and their TEXT layers alone drop to
+   exactly 5% — the card containers stay fully visible. Once stable, 3s of
+   stillness tilts the zoomed card one way and the next 3s tilts it back,
+   rolling on a loop. A second tap scales it back down, slides it to the
+   absolute back of the pile and zooms the next card.
+
+   All 5 cards are transparent (no solid background) at every breakpoint, so
+   their thin champagne borders visibly overlap in a real 3D deck at rest.
 
    BOOKING: only the active front card's BOOK NOW button leaves the site —
    it opens that service's Square checkout in a fresh browser tab.
@@ -46,27 +50,23 @@ const CARDS = TREATMENTS.slice(0, 5).map((treatment, i) => ({
   title: DECK_TITLES[i],
 }))
 
-/* Angled stack: cards tilt and fan programmatically in 3D while
-   cascading back into infinite depth (center-anchored offsets). The lead
-   card stays at full contrast; the four behind fade into lower opacities. */
+/* Angled stack (desktop rest): the cards tilt and fan programmatically in
+   3D, spread wide enough that every title row stays legible while they stay
+   visibly stacked. The containers carry NO opacity and NO background — the
+   thin champagne borders simply overlap, so all five read at once. */
 const STACKED = [
-  'z-[50] translate-y-[55px] rotate-0 scale-100 opacity-100',
-  'z-[45] translate-y-[43px] rotate-[2.5deg] scale-[0.95] opacity-80',
-  'z-[40] translate-y-[31px] rotate-[-2.5deg] scale-[0.90] opacity-65',
-  'z-[35] translate-y-[19px] rotate-[5deg] scale-[0.85] opacity-50',
-  'z-[30] translate-y-[7px] rotate-[-5deg] scale-[0.80] opacity-40',
+  'z-[50] translate-y-[52px] rotate-0 scale-100',
+  'z-[45] translate-y-[26px] -translate-x-[14px] rotate-[2.5deg] scale-[0.96]',
+  'z-[40] translate-y-0 translate-x-[12px] rotate-[-2.5deg] scale-[0.92]',
+  'z-[35] -translate-y-[26px] -translate-x-[8px] rotate-[5deg] scale-[0.88]',
+  'z-[30] -translate-y-[52px] translate-x-[16px] rotate-[-5deg] scale-[0.84]',
 ]
 
 /* Mobile & tablet stack: the same cascade expressed with true 3D rotational
    scale-down values (rotateY + perspective) and matching layer indexes.
-   Offsets are symmetric around the centre so the pile sits dead-centre. */
-const MOBILE_STACKED = [
-  'z-[50] opacity-100',
-  'z-[45] opacity-80',
-  'z-[40] opacity-65',
-  'z-[35] opacity-50',
-  'z-[30] opacity-40',
-]
+   Offsets are symmetric around the centre so the pile sits dead-centre, and
+   the containers stay fully opaque (only their TEXT layers ever fade). */
+const MOBILE_STACKED = ['z-[50]', 'z-[45]', 'z-[40]', 'z-[35]', 'z-[30]']
 const MOBILE_STACKED_TRANSFORM = [
   'translate3d(0, 26px, 0) rotateY(0deg) scale(1)',
   'translate3d(0, 13px, 0) rotateY(6deg) scale(0.95)',
@@ -301,20 +301,19 @@ export default function Services() {
             >
               {cards.map((t, pos) => {
                 const isFront = pos === 0
-                /* Compact typography opacity: the front card reads at full
-                   contrast while the 4 cards behind drop to exactly 5% the
-                   instant it reaches Max Zoom (0% while the deck rests, so
-                   no text ever collides behind the lead card). Desktop keeps
-                   its original zero-overlap rule. */
+                /* TEXT-ONLY fade. The card containers stay fully visible at
+                   all times — only their inner typography layers change.
+                   Desktop: every title stays at 100% (a legible angular stack
+                   at rest, unchanged when the grid explodes). Compact: the
+                   front card reads at 100% while the 4 cards behind drop to
+                   exactly 5% the instant it reaches Max Zoom (0% at rest). */
                 const textOpacity = isCompact
                   ? isFront
                     ? 1
                     : mobileZoomed
                       ? MOBILE_BACK_OPACITY
                       : 0
-                  : isFront || exploded
-                    ? 1
-                    : 0
+                  : 1
                 const isLeaving = leaving === t.id
                 const desktopMode = exploded
                   ? EXPLODED[pos]
@@ -349,7 +348,7 @@ export default function Services() {
                           handleDeckTap()
                         }}
                         style={isCompact ? { transform: compactTransform } : undefined}
-                        className={`h-[min(430px,64dvh)] w-[min(330px,84vw)] cursor-pointer border bg-black p-6 shadow-[0_25px_60px_rgba(0,0,0,0.85)] transition-all duration-700 lg:h-[430px] lg:w-[330px] ${EASE} ${
+                        className={`h-[min(430px,64dvh)] w-[min(330px,84vw)] cursor-pointer border bg-transparent p-6 shadow-[0_18px_45px_rgba(0,0,0,0.55)] transition-all duration-700 lg:h-[430px] lg:w-[330px] ${EASE} ${
                           isFront ? 'border-champagne/60' : 'border-champagne/25'
                         } ${
                           isCompact

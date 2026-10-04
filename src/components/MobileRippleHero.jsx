@@ -9,11 +9,13 @@ import { useRippleGeometry } from '../hooks/useRippleGeometry'
    track registered to the portrait's measured ripple lines (see
    useRippleGeometry).
 
-   ONE-TIME INTRO (runs once per page load, never again until a refresh)
-   1. The FIRST ripple slice on the far left extends smoothly to the right
-      for 4 seconds, then slides back into its stationary slot.
-   2. The moment it snaps back, a quick water-ripple lighting flash cascades
-      across all 9 ripples sequentially from left to right.
+   ONE-TIME "OCEAN WAVE" INTRO (runs exactly once per live session)
+   Immediately after load, a single fluid wave sweeps the 9 columns from the
+   far RIGHT of the grid across to the far LEFT. Each track ripples in turn —
+   bulging slightly out toward the viewport glass on a 3D translateZ and
+   sinking back away — with a soft sheen riding the crest so the motion reads
+   over the transparent tracks. When the wave exits stage left the columns
+   lock flat into their narrow masking grooves and the tap pipeline arms.
 
    MANUAL TAP PIPELINE (armed once the intro has finished)
    - Column 1: width extension only — it stretches right and shows its asset
@@ -34,9 +36,13 @@ import { useRippleGeometry } from '../hooks/useRippleGeometry'
 const MOBILE_POS_X = 0.5096
 
 const SLICE_COUNT = 9
-const INTRO_FIRST_MS = 4000
-const FLASH_STEP_MS = 110
-const FLASH_SETTLE_MS = 260
+/* Ocean wave: one right → left sweep, then the columns lock flat. */
+const WAVE_DELAY_MS = 260
+const WAVE_DURATION_MS = 1500
+const WAVE_AMPLITUDE = 40
+const WAVE_SIGMA = 1.35
+const WAVE_FREQ = 0.95
+const WAVE_SHEEN = 0.16
 const STRETCH_MS = 700
 const ZOOM_OUT_MS = 500
 const STRETCH_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)'
@@ -48,10 +54,13 @@ export default function MobileRippleHero({ media }) {
   const rampRef = useRef(0)
   const stretchTimerRef = useRef(0)
   const closeTimerRef = useRef(0)
+  const trackRefs = useRef([])
+  const sheenRefs = useRef([])
+  const waveRafRef = useRef(0)
+  const waveTimerRef = useRef(0)
 
-  /* idle → first → retract → flash → ready */
+  /* idle → wave → ready */
   const [phase, setPhase] = useState('idle')
-  const [flashIndex, setFlashIndex] = useState(-1)
   const [manualIndex, setManualIndex] = useState(null)
   const [zoomed, setZoomed] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -83,44 +92,64 @@ export default function MobileRippleHero({ media }) {
     })
   }
 
-  /* ---- ONE-TIME INTRO: first-slice slide + water-ripple flash ----
-     Starts the moment the measured ripple geometry is ready and runs once
-     per page load. */
+  /* ---- ONE-TIME "OCEAN WAVE" INTRO ----
+     A single fluid wave sweeps the 9 columns from the far RIGHT of the grid
+     across to the far LEFT: each track bulges out toward the viewport glass
+     on a 3D translateZ and sinks back away, with a soft sheen riding the
+     crest so the motion reads over the transparent tracks. When the wave
+     exits stage left the columns lock flat into their narrow masking grooves
+     and the tap pipeline arms. Runs once per page load. */
   useEffect(() => {
     if (geometry.length !== SLICE_COUNT) return
 
     let cancelled = false
-    const timers = []
-    const later = (fn, ms) => timers.push(setTimeout(fn, ms))
 
-    /* Step 1 — the first slice alone slides out for 4 seconds */
-    setPhase('first')
-    later(() => {
-      if (!cancelled) setPhase('retract')
-    }, INTRO_FIRST_MS)
-
-    /* Step 2 — the instant it snaps back, the ripple flash cascades L→R */
-    const flashStart = INTRO_FIRST_MS + STRETCH_MS
-    later(() => {
-      if (!cancelled) setPhase('flash')
-    }, flashStart)
-    for (let i = 0; i < SLICE_COUNT; i++) {
-      later(() => {
-        if (!cancelled) setFlashIndex(i)
-      }, flashStart + i * FLASH_STEP_MS)
-    }
-    later(() => {
-      if (!cancelled) setFlashIndex(-1)
-    }, flashStart + SLICE_COUNT * FLASH_STEP_MS)
-    later(() => {
+    const start = () => {
       if (cancelled) return
-      setPhase('ready')
-      setFlashIndex(-1)
-    }, flashStart + SLICE_COUNT * FLASH_STEP_MS + FLASH_SETTLE_MS)
+      setPhase('wave')
+      const t0 = performance.now()
+
+      const frame = (now) => {
+        if (cancelled) return
+        const t = Math.min((now - t0) / WAVE_DURATION_MS, 1)
+        /* The crest travels from the far right (index 8) to the far left (0) */
+        const crest = (1 - t) * (SLICE_COUNT - 1)
+        for (let i = 0; i < SLICE_COUNT; i++) {
+          const d = i - crest
+          const decay = Math.exp(-(d * d) / (2 * WAVE_SIGMA * WAVE_SIGMA))
+          const wave = Math.sin(d * WAVE_FREQ) * decay
+          const node = trackRefs.current[i]
+          if (node) {
+            node.style.transform = `translateZ(${(wave * WAVE_AMPLITUDE).toFixed(2)}px)`
+          }
+          const sheen = sheenRefs.current[i]
+          if (sheen) sheen.style.opacity = Math.abs(wave) * WAVE_SHEEN
+        }
+
+        if (t < 1) {
+          waveRafRef.current = requestAnimationFrame(frame)
+          return
+        }
+
+        /* Lock the columns flat into their narrow stationary grooves */
+        for (let i = 0; i < SLICE_COUNT; i++) {
+          const node = trackRefs.current[i]
+          if (node) node.style.transform = 'translateZ(0px)'
+          const sheen = sheenRefs.current[i]
+          if (sheen) sheen.style.opacity = 0
+        }
+        setPhase('ready')
+      }
+
+      waveRafRef.current = requestAnimationFrame(frame)
+    }
+
+    waveTimerRef.current = setTimeout(start, WAVE_DELAY_MS)
 
     return () => {
       cancelled = true
-      timers.forEach(clearTimeout)
+      clearTimeout(waveTimerRef.current)
+      cancelAnimationFrame(waveRafRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geometry.length])
@@ -147,6 +176,8 @@ export default function MobileRippleHero({ media }) {
     const refs = videoRefs.current
     return () => {
       cancelAnimationFrame(rampRef.current)
+      cancelAnimationFrame(waveRafRef.current)
+      clearTimeout(waveTimerRef.current)
       clearTimeout(stretchTimerRef.current)
       clearTimeout(closeTimerRef.current)
       refs.forEach((video) => {
@@ -231,20 +262,21 @@ export default function MobileRippleHero({ media }) {
         className="absolute inset-0 z-[4] cursor-default"
       />
 
-      <div className="absolute inset-0 z-[5]">
+      {/* Perspective host — the one-time ocean wave bulges the tracks out
+          toward the glass on translateZ, then sinks them back away. */}
+      <div className="absolute inset-0 z-[5]" style={{ perspective: '820px' }}>
         {geometry.map((track, i) => {
           const item = media[i]
-          const introFirst = phase === 'first' && i === 0
           const isActive = manualIndex === i
           const isZoomed = isActive && zoomed
-          const expanded = introFirst || isActive
-          const flashing = flashIndex === i
+          const expanded = isActive
           const mediaCls = `absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
             expanded ? 'opacity-100' : 'opacity-0'
           } ${isZoomed ? 'fade-zoom-in' : closing && isActive ? 'fade-zoom-out' : ''}`
           return (
             <button
               key={i}
+              ref={(el) => (trackRefs.current[i] = el)}
               aria-label={`Expand treatment media ${i + 1}`}
               onClick={() => handleTap(i)}
               className="absolute top-0 h-full cursor-pointer overflow-hidden"
@@ -253,7 +285,7 @@ export default function MobileRippleHero({ media }) {
                    the zoom step breaks the asset out to the full screen. */
                 left: `${isZoomed ? 0 : track.left}%`,
                 width: `${isZoomed ? 100 : expanded ? 100 - track.left : track.width}%`,
-                zIndex: isZoomed ? 40 : isActive ? 30 : introFirst ? 20 : 5,
+                zIndex: isZoomed ? 40 : isActive ? 30 : 5,
                 transition: `left ${STRETCH_MS}ms ${STRETCH_EASE}, width ${STRETCH_MS}ms ${STRETCH_EASE}`,
               }}
             >
@@ -270,14 +302,12 @@ export default function MobileRippleHero({ media }) {
               ) : (
                 <img src={item.src} alt="" loading="lazy" className={mediaCls} />
               )}
-              {/* Water-ripple lighting flash travelling L→R */}
+              {/* Ocean-wave sheen — rides the crest so the 3D ripple reads
+                  over the transparent tracks (driven by the wave rAF). */}
               <span
+                ref={(el) => (sheenRefs.current[i] = el)}
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-white"
-                style={{
-                  opacity: flashing ? 0.4 : 0,
-                  transition: `opacity ${FLASH_STEP_MS}ms linear`,
-                }}
+                className="pointer-events-none absolute inset-0 bg-white opacity-0"
               />
             </button>
           )
