@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import Reveal from '../components/Reveal'
+import MindRelaxLayer from '../components/MindRelaxLayer'
 import { TALLY_WEBHOOK_URL } from '../config/integrations'
 import { PHONE_DISPLAY, PHONE_TEL } from '../config/links'
 
 /* ==========================================================================
    PAGE 3 — THE SOCIAL PROOF & CLIENT INTAKE LAYER
    Left: glassmorphic auto-rotating review slider.
-   Right: client intake dashboard form.
+   Right (desktop lg+ only): client intake dashboard form.
+
+   MOBILE / TABLET (< lg): the old "Contact Us Now" intake box is removed and
+   replaced by <MindRelaxLayer /> — the silent looping breathing video in the
+   lower quadrant plus the floating Voiceflow speech-cloud bubble stream.
+   Desktop is untouched: the intake form stays exactly as it was.
    ========================================================================== */
 
 const REVIEWS = [
@@ -123,10 +129,10 @@ export default function Testimonials() {
           </div>
         </Reveal>
 
-        {/* ---- RIGHT COLUMN: client intake dashboard ---- */}
+        {/* ---- RIGHT COLUMN: client intake dashboard (desktop only) ---- */}
         <Reveal className="snap-start md:[scroll-snap-align:none]" delay={250}>
           <div className="mx-auto w-full max-w-md">
-            <div className="rounded-xl border border-zinc-800 bg-charcoal p-8 shadow-2xl">
+            <div className="hidden rounded-xl border border-zinc-800 bg-charcoal p-8 shadow-2xl lg:block">
               {submitted ? (
                 <div className="flex min-h-[380px] flex-col items-center justify-center text-center transition-opacity duration-700">
                   <span className="text-2xl text-champagne">✦</span>
@@ -202,6 +208,10 @@ export default function Testimonials() {
           </div>
         </Reveal>
       </div>
+
+      {/* ---- MOBILE / TABLET ONLY: breathing video + speech-cloud bubbles.
+             Returns null on desktop, so the desktop layer is untouched. ---- */}
+      <MindRelaxLayer />
     </section>
   )
 }

@@ -158,3 +158,48 @@ body {
   opacity: 0;
   animation: fade-up 0.9s ease forwards;
 }
+
+/* ==========================================================================
+   PAGE 3 (mobile/tablet) — FLOATING SPEECH-CLOUD BUBBLE STREAM
+   Bubbles rise from the base of the layer; the field mask keeps them dense
+   over the lower breathing-video quadrant and thins them out as they pass
+   the testimonial rows before dissolving at the top.
+   ========================================================================== */
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.9;
+  }
+  55% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-120dvh);
+    opacity: 0;
+  }
+}
+.bubble-rise {
+  animation-name: bubble-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+.bubble-field {
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 0%,
+    #000 38%,
+    rgba(0, 0, 0, 0.4) 68%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 0%,
+    #000 38%,
+    rgba(0, 0, 0, 0.4) 68%,
+    transparent 100%
+  );
+}

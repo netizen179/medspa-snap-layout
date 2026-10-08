@@ -398,7 +398,13 @@ export default function Services() {
                                 /* Direct Square handoff: the BOOK NOW button
                                    bypasses every internal page and opens the
                                    checkout in a fresh browser tab. */
+                                /* Freeze the parent deck shuffle the instant the
+                                   button is touched, so the Square link opens
+                                   cleanly in a fresh tab. */
                                 onClick={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
+                                onTouchEnd={(e) => e.stopPropagation()}
+                                onPointerDown={(e) => e.stopPropagation()}
                                 className="inline-flex items-center gap-2 border border-champagne/50 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-ivory transition-colors duration-300 hover:bg-champagne hover:text-black"
                               >
                                 Book Now
