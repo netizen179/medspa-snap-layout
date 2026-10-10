@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
 import Reveal from '../components/Reveal'
-import MindRelaxLayer from '../components/MindRelaxLayer'
 import { TALLY_WEBHOOK_URL } from '../config/integrations'
 import { PHONE_DISPLAY, PHONE_TEL } from '../config/links'
 
 /* ==========================================================================
-   PAGE 3 — THE SOCIAL PROOF & CLIENT INTAKE LAYER
+   PAGE 3 / "PAGE 4A" — THE SOCIAL PROOF LAYER
    Left: glassmorphic auto-rotating review slider.
    Right (desktop lg+ only): client intake dashboard form.
 
-   MOBILE / TABLET (< lg): the old "Contact Us Now" intake box is removed and
-   replaced by <MindRelaxLayer /> — the silent looping breathing video in the
-   lower quadrant plus the floating Voiceflow speech-cloud bubble stream.
-   Desktop is untouched: the intake form stays exactly as it was.
+   MOBILE / TABLET (< lg): the old "Contact Us Now" intake box is removed, so
+   this layer is dedicated exclusively to the review carousel — one clean,
+   full-screen 100dvh snap page. The breathing video + AI speech-bubble
+   matrix now live on their own layer, #page-4b (<MindRelaxEnclave />).
+   Desktop is untouched: carousel left + intake right, exactly as before.
    ========================================================================== */
 
 const REVIEWS = [
@@ -81,10 +81,13 @@ export default function Testimonials() {
   }
 
   return (
-    <section id="page-3" className="section relative min-h-[100dvh] bg-black">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-6 py-24 md:px-10 lg:min-h-screen lg:grid-cols-2 lg:gap-8 lg:py-0">
-        {/* ---- LEFT COLUMN: validation & trust ---- */}
-        <Reveal className="snap-start md:[scroll-snap-align:none]" delay={100}>
+    <section
+      id="page-3"
+      className="section relative flex min-h-[100dvh] items-center bg-black lg:block"
+    >
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-14 px-6 py-24 md:px-10 lg:min-h-screen lg:grid-cols-2 lg:gap-8 lg:py-0">
+        {/* ---- LEFT COLUMN / 4A: validation & trust ---- */}
+        <Reveal delay={100}>
           <div className="mx-auto max-w-md lg:mr-auto lg:ml-16 lg:pl-[3vw]">
             <p className="text-xs uppercase tracking-[0.35em] text-zinc-500">
               Testimonials
@@ -130,9 +133,9 @@ export default function Testimonials() {
         </Reveal>
 
         {/* ---- RIGHT COLUMN: client intake dashboard (desktop only) ---- */}
-        <Reveal className="snap-start md:[scroll-snap-align:none]" delay={250}>
+        <Reveal className="hidden lg:block" delay={250}>
           <div className="mx-auto w-full max-w-md">
-            <div className="hidden rounded-xl border border-zinc-800 bg-charcoal p-8 shadow-2xl lg:block">
+            <div className="rounded-xl border border-zinc-800 bg-charcoal p-8 shadow-2xl">
               {submitted ? (
                 <div className="flex min-h-[380px] flex-col items-center justify-center text-center transition-opacity duration-700">
                   <span className="text-2xl text-champagne">✦</span>
@@ -208,10 +211,6 @@ export default function Testimonials() {
           </div>
         </Reveal>
       </div>
-
-      {/* ---- MOBILE / TABLET ONLY: breathing video + speech-cloud bubbles.
-             Returns null on desktop, so the desktop layer is untouched. ---- */}
-      <MindRelaxLayer />
     </section>
   )
 }

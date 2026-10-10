@@ -187,19 +187,41 @@ body {
   animation-iteration-count: infinite;
   will-change: transform, opacity;
 }
-.bubble-field {
-  -webkit-mask-image: linear-gradient(
-    to top,
-    #000 0%,
-    #000 38%,
-    rgba(0, 0, 0, 0.4) 68%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to top,
-    #000 0%,
-    #000 38%,
-    rgba(0, 0, 0, 0.4) 68%,
-    transparent 100%
-  );
+/* ==========================================================================
+   PAGE 4B — OCEAN-WAVE BORDER FADE
+   A slow charcoal shadow that rises and falls around the layer's edges,
+   giving the whole page a continuous breathing feel.
+   ========================================================================== */
+@keyframes page4b-wave {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+.page4b-wave {
+  background:
+    linear-gradient(to bottom, rgba(24, 24, 27, 0.95), rgba(24, 24, 27, 0) 26%),
+    linear-gradient(to top, rgba(24, 24, 27, 0.95), rgba(24, 24, 27, 0) 26%),
+    linear-gradient(to right, rgba(24, 24, 27, 0.7), rgba(24, 24, 27, 0) 16%),
+    linear-gradient(to left, rgba(24, 24, 27, 0.7), rgba(24, 24, 27, 0) 16%);
+  animation: page4b-wave 7s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   PAGE 4B — IN-LINE VOICEFLOW CHAT
+   Kill the default launcher (the chat opens from the bubbles) and theme the
+   chat surface with the marble / golden-bust / mirror wallpaper.
+   ========================================================================== */
+.vfrc-launcher {
+  display: none !important;
+}
+#voiceflow-chat,
+.vfrc-widget,
+.vfrc-chat {
+  background-image: url("https://mtgrgksrbadhigdnzeee.supabase.co/storage/v1/object/public/medspa-media/chatbox%20bg%20wallpaper.png") !important;
+  background-size: cover !important;
+  background-position: center !important;
 }
